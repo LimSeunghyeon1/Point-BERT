@@ -39,15 +39,15 @@ def main():
     # config
     config = get_config(args, logger = logger)
     # batch size
-    if args.distributed:
-        assert config.total_bs % world_size == 0
-        config.dataset.train.others.bs = config.total_bs // world_size
-        config.dataset.val.others.bs = 1
-        config.dataset.test.others.bs = 1
-    else:
-        config.dataset.train.others.bs = config.total_bs
-        config.dataset.val.others.bs = 1
-        config.dataset.test.others.bs = 1
+    # if args.distributed:
+    #     assert config.total_bs % world_size == 0
+    #     config.dataset.train.others.bs = config.total_bs // world_size
+    #     config.dataset.val.others.bs = 1
+    #     config.dataset.test.others.bs = 1
+    # else:
+    #     config.dataset.train.others.bs = config.total_bs
+    #     config.dataset.val.others.bs = 1
+    #     config.dataset.test.others.bs = 1
     # log 
     log_args_to_file(args, 'args', logger = logger)
     log_config_to_file(config, 'config', logger = logger)

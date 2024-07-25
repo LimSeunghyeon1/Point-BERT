@@ -12,6 +12,16 @@ from extensions.chamfer_dist import ChamferDistanceL1, ChamferDistanceL2
 import math
 import cv2
 import numpy as np
+from datasets_local.ArticulationDataset import PartDataset
+from torch.utils.data import DataLoader
+
+def to_cuda(batch):
+    assert type(batch) == list, batch
+    for b in batch:
+        for key, value in b.items():
+            if isinstance(value, torch.Tensor):
+                b[key] = value.cuda()
+    return batch
 
 def compute_loss(loss_1, loss_2, config, niter, train_writer):
     '''
@@ -53,8 +63,16 @@ def get_temp(config, niter):
 def run_net(args, config, train_writer=None, val_writer=None):
     logger = get_logger(args.log_name)
     # build dataset
-    (train_sampler, train_dataloader), (_, test_dataloader) = builder.dataset_builder(args, config.dataset.train), \
-                                                            builder.dataset_builder(args, config.dataset.val)
+    # (train_sampler, train_dataloader), (_, test_dataloader) = builder.dataset_builder(args, config.dataset.train), \
+    #                                                         builder.dataset_builder(args, config.dataset.val)
+    idx2name = {1: "switch", 2: "tube"} # HARDCODED
+    train_dataset = PartDataset('trn', config.dataset.points_num, config.dataset.train.dirpath)
+    valid_dataset = PartDataset('valid', config.dataset.points_num, config.dataset.val.dirpath)
+    
+    train_dataloader = DataLoader(train_dataset, batch_size=config.dataset.batch_size, shuffle=True)
+    test_dataloader = DataLoader(valid_dataset, batch_size=1)
+    
+    
     # build model
     base_model = builder.model_builder(config.model)
     if args.use_gpu:
@@ -98,8 +116,7 @@ def run_net(args, config, train_writer=None, val_writer=None):
     # training
     base_model.zero_grad()
     for epoch in range(start_epoch, config.max_epoch + 1):
-        if args.distributed:
-            train_sampler.set_epoch(epoch)
+        
         base_model.train()
 
         epoch_start_time = time.time()
@@ -112,21 +129,20 @@ def run_net(args, config, train_writer=None, val_writer=None):
 
         base_model.train()  # set model to training mode
         n_batches = len(train_dataloader)
-        for idx, (taxonomy_ids, model_ids, data) in enumerate(train_dataloader):
+        for idx, (_, _, data) in enumerate(train_dataloader):
             num_iter += 1
             n_itr = epoch * n_batches + idx
             
             data_time.update(time.time() - batch_start_time)
-            npoints = config.dataset.train._base_.N_POINTS
-            dataset_name = config.dataset.train._base_.NAME
-            if dataset_name == 'ShapeNet':
-                points = data.cuda()
-            else:
-                raise NotImplementedError(f'Train phase do not support {dataset_name}')
-
+            # if dataset_name == 'ShapeNet':
+            #     points = data.cuda()
+            # else:
+            #     raise NotImplementedError(f'Train phase do not support {dataset_name}')
+            points = data.cuda()
+            
             temp = get_temp(config, n_itr)
 
-
+            
             ret = base_model(points, temperature = temp, hard = False)
 
             loss_1, loss_2 = base_model.module.get_loss(ret, points)
@@ -201,7 +217,6 @@ def run_net(args, config, train_writer=None, val_writer=None):
 def validate(base_model, test_dataloader, epoch, ChamferDisL1, ChamferDisL2, val_writer, args, config, logger = None):
     print_log(f"[VALIDATION] Start validating epoch {epoch}", logger = logger)
     base_model.eval()  # set model to eval mode
-
     test_losses = AverageMeter(['SparseLossL1', 'SparseLossL2', 'DenseLossL1', 'DenseLossL2'])
     test_metrics = AverageMeter(Metrics.names())
     category_metrics = dict()
@@ -209,16 +224,10 @@ def validate(base_model, test_dataloader, epoch, ChamferDisL1, ChamferDisL2, val
 
     with torch.no_grad():
         for idx, (taxonomy_ids, model_ids, data) in enumerate(test_dataloader):
+
             taxonomy_id = taxonomy_ids[0] if isinstance(taxonomy_ids[0], str) else taxonomy_ids[0].item()
             model_id = model_ids[0]
-
-            npoints = config.dataset.val._base_.N_POINTS
-            dataset_name = config.dataset.val._base_.NAME
-            if dataset_name == 'ShapeNet':
-                points = data.cuda()
-            else:
-                raise NotImplementedError(f'Train phase do not support {dataset_name}')
-
+            points = data.cuda()
             ret = base_model(inp = points, hard=True, eval=True)
             coarse_points = ret[0]
             dense_points = ret[1]
@@ -245,6 +254,7 @@ def validate(base_model, test_dataloader, epoch, ChamferDisL1, ChamferDisL2, val
             vis_list = [0, 1000, 1600, 1800, 2400, 3400]
             if val_writer is not None and idx in vis_list: #% 200 == 0:
                 input_pc = points.squeeze().detach().cpu().numpy()
+                print("input point", input_pc.shape)
                 input_pc = misc.get_ptcloud_img(input_pc)
                 val_writer.add_image('Model%02d/Input'% idx , input_pc, epoch, dataformats='HWC')
 
@@ -269,7 +279,7 @@ def validate(base_model, test_dataloader, epoch, ChamferDisL1, ChamferDisL2, val
             torch.cuda.synchronize()
      
     # Print testing results
-    shapenet_dict = json.load(open('./data/shapenet_synset_dict.json', 'r'))
+    # shapenet_dict = json.load(open('./data/shapenet_synset_dict.json', 'r'))
     print_log('============================ TEST RESULTS ============================',logger=logger)
     msg = ''
     msg += 'Taxonomy\t'
@@ -285,7 +295,7 @@ def validate(base_model, test_dataloader, epoch, ChamferDisL1, ChamferDisL2, val
         msg += (str(category_metrics[taxonomy_id].count(0)) + '\t')
         for value in category_metrics[taxonomy_id].avg():
             msg += '%.3f \t' % value
-        msg += shapenet_dict[taxonomy_id] + '\t'
+        # msg += shapenet_dict[taxonomy_id] + '\t'
         print_log(msg, logger=logger)
 
     msg = ''

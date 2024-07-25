@@ -19,6 +19,8 @@
 
 #ifndef TORCH_CHECK_EQ
 #define TORCH_CHECK_EQ(val1, val2) CHECK_EQ(val1, val2)
+#endif
+
 
 
 /********************************

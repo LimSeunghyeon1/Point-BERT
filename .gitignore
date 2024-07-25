@@ -151,3 +151,6 @@ plot/
 pretrain_weight
 
 segmentation/log
+
+nohup.out
+where2act_dataset
