@@ -28,12 +28,11 @@ kldweight: {
 dataset : {
   batch_size : 512,
   points_num : 1024,
-  train : { dirpath: '/data/models/Point-BERT/where2act_dataset/faucet_0724/train', 
+  train : { dirpath: '/data/models/Point-BERT/where2act_dataset/faucet_0727/train', 
           },
-  val : { dirpath: '/data/models/Point-BERT/where2act_dataset/faucet_0724/val', # this should be changed, test 
+  val : { dirpath: '/data/models/Point-BERT/where2act_dataset/faucet_0727/val', # this should be changed, test 
           },
-  test : { dirpath: '', 
-            labelpath: '',
+  test : { dirpath: '/data/models/Point-BERT/where2act_dataset/faucet_0727/test', 
           },
 }
 model : {

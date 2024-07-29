@@ -14,6 +14,11 @@ import cv2
 import numpy as np
 from datasets_local.ArticulationDataset import PartDataset
 from torch.utils.data import DataLoader
+# from extensions.chamfer_dist import chamfer_distance_matrix
+# from extensions.label_pointcloud import label_pointcloud
+import torch.nn.functional as F
+
+
 
 def to_cuda(batch):
     assert type(batch) == list, batch
@@ -65,7 +70,6 @@ def run_net(args, config, train_writer=None, val_writer=None):
     # build dataset
     # (train_sampler, train_dataloader), (_, test_dataloader) = builder.dataset_builder(args, config.dataset.train), \
     #                                                         builder.dataset_builder(args, config.dataset.val)
-    idx2name = {1: "switch", 2: "tube"} # HARDCODED
     train_dataset = PartDataset('trn', config.dataset.points_num, config.dataset.train.dirpath)
     valid_dataset = PartDataset('valid', config.dataset.points_num, config.dataset.val.dirpath)
     
@@ -129,7 +133,7 @@ def run_net(args, config, train_writer=None, val_writer=None):
 
         base_model.train()  # set model to training mode
         n_batches = len(train_dataloader)
-        for idx, (_, _, data) in enumerate(train_dataloader):
+        for idx, (_, _, data, _) in enumerate(train_dataloader):
             num_iter += 1
             n_itr = epoch * n_batches + idx
             
@@ -223,7 +227,7 @@ def validate(base_model, test_dataloader, epoch, ChamferDisL1, ChamferDisL2, val
     n_samples = len(test_dataloader) # bs is 1
 
     with torch.no_grad():
-        for idx, (taxonomy_ids, model_ids, data) in enumerate(test_dataloader):
+        for idx, (taxonomy_ids, model_ids, data, _) in enumerate(test_dataloader):
 
             taxonomy_id = taxonomy_ids[0] if isinstance(taxonomy_ids[0], str) else taxonomy_ids[0].item()
             model_id = model_ids[0]
@@ -316,7 +320,12 @@ def validate(base_model, test_dataloader, epoch, ChamferDisL1, ChamferDisL2, val
 def test_net(args, config):
     logger = get_logger(args.log_name)
     print_log('Tester start ... ', logger = logger)
-    _, test_dataloader = builder.dataset_builder(args, config.dataset.test)
+    
+    
+    test_dataset = PartDataset('test', config.dataset.points_num, config.dataset.test.dirpath)
+    
+    test_dataloader = DataLoader(test_dataset, batch_size=1)
+    # _, test_dataloader = builder.dataset_builder(args, config.dataset.test)
  
     base_model = builder.model_builder(config.model)
     builder.load_model(base_model, args.ckpts, logger = logger)
@@ -334,35 +343,60 @@ def test(base_model, test_dataloader, args, config, logger = None):
 
     base_model.eval()  # set model to eval mode
     target = './vis'
-    useful_cate = [
-        "02691156",
-        "02818832",
-        "04379243",
-        "04099429",
-        "03948459",
-        "03790512",
-        "03642806",
-        "03467517",
-        "03261776",
-        "03001627",
-        "02958343",
-        "03759954"
-    ]
+    # useful_cate = [
+    #     "02691156",
+    #     "02818832",
+    #     "04379243",
+    #     "04099429",
+    #     "03948459",
+    #     "03790512",
+    #     "03642806",
+    #     "03467517",
+    #     "03261776",
+    #     "03001627",
+    #     "02958343",
+    #     "03759954"
+    # ]
     with torch.no_grad():
-        for idx, (taxonomy_ids, model_ids, data) in enumerate(test_dataloader):
+        for idx, (taxonomy_ids, model_ids, data, label) in enumerate(test_dataloader):
             # import pdb; pdb.set_trace()
-            if  taxonomy_ids[0] not in useful_cate:
-                continue
-    
-            dataset_name = config.dataset.test._base_.NAME
-            if dataset_name == 'ShapeNet':
-                points = data.cuda()
-            else:
-                raise NotImplementedError(f'Train phase do not support {dataset_name}')
-
-
-            ret = base_model(inp = points, hard=True, eval=True)
+            # if  taxonomy_ids[0] not in useful_cate:
+            #     continue
+            taxonomy_id = taxonomy_ids[0] if isinstance(taxonomy_ids[0], str) else taxonomy_ids[0].item()
+            model_id = model_ids[0]
+            points = data.cuda()
+            # dataset_name = config.dataset.test._base_.NAME
+            # if dataset_name == 'ShapeNet':
+            #     points = data.cuda()
+            
+            # articulation용
+            ret = base_model(inp = points, hard=True, eval=True, articulation=True)
             dense_points = ret[1]
+            
+            '''
+            EXPERIMENTAL... TO BE continued
+            '''
+            '''
+            token_per_group = ret[-1] # B num_groups C
+            group_points = ret[-2] #neighbo
+            assert token_per_group.shape[-1] == 768, token_per_group.shape
+            print("token_per_group", token_per_group.shape) 
+            print("neighborhood", group_points.shape, group_points) # [1, 64, 32, 3]
+            
+            label = label.int()
+            
+            num_labels = label.max().item()
+            label_sorted_points = label_pointcloud(data, label, num_labels) # B num_labels, N, 3
+            chamfer_dist_matrix = 1 / (chamfer_distance_matrix(label_sorted_points, group_points) + 1e-6) # B num_labels num_group
+            chamfer_dist_matrix_softmax = F.softmax(chamfer_dist_matrix, dim=-1)
+            
+            # 각 그룹에 대응되는 token을 soft하게 곱한다.
+            label_token_embed = chamfer_dist_matrix_softmax @ token_per_group
+            '''
+            
+            '''
+            ----------------------------------
+            '''
 
             final_image = []
 

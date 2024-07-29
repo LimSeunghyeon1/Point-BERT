@@ -8,7 +8,8 @@ from torch import distributed as dist
 
 def init_dist(launcher, backend='nccl', **kwargs):
     if mp.get_start_method(allow_none=True) is None:
-        mp.set_start_method('spawn')
+        mp.set_start_method('spawn', force=True)
+        
     if launcher == 'pytorch':
         _init_dist_pytorch(backend, **kwargs)
     else:

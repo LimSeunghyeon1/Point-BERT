@@ -335,6 +335,8 @@ class DiscreteVAE(nn.Module):
         logits = self.dgcnn_1(logits, center) #  B G N
         soft_one_hot = F.gumbel_softmax(logits, tau = temperature, dim = 2, hard = hard) # B G N
         sampled = torch.einsum('b g n, n c -> b g c', soft_one_hot, self.codebook) # B G C
+        
+                
         feature = self.dgcnn_2(sampled, center)
         coarse, fine = self.decoder(feature)
 
@@ -344,6 +346,10 @@ class DiscreteVAE(nn.Module):
             whole_coarse = (coarse + center.unsqueeze(2)).reshape(inp.size(0), -1, 3)
 
         assert fine.size(2) == self.group_size
+        if 'articulation' in kwargs.keys():
+            if kwargs['articulation']:
+                # sampled를 더한다. 
+                return (whole_coarse, whole_fine, coarse, fine, neighborhood, logits, center.unsqueeze(2) + neighborhood, sampled)
         ret = (whole_coarse, whole_fine, coarse, fine, neighborhood, logits)
         return ret
 

@@ -71,7 +71,7 @@ class PartDataset(Dataset):
         # faucet인지 아닌지 체크용
         for instance_pose_dict in instance_pose_json.values():
             if instance_pose_dict['index'] == 0:
-                assert instance_pose_dict['name'] == 'Faucet' , instance_pose_dict #HARDCODED
+                # assert instance_pose_dict['name'] == 'Faucet' , instance_pose_dict #HARDCODED
                 taxomony_id = instance_pose_dict['name']
         # Ply 파일 읽기
         ply_data = PlyData.read(cloud_path)
@@ -87,7 +87,8 @@ class PartDataset(Dataset):
         green = vertex_data['green']
         blue = vertex_data['blue']
         alpha = vertex_data['alpha']
-        label = vertex_data['label']
+        label = vertex_data['label'] - 1
+        assert label.min() == 0 # 0은 없었다고 가정
             
         # Numpy array로 변환
         vertex_array = np.vstack((x, y, z, red, green, blue, alpha, label)).T
@@ -103,14 +104,19 @@ class PartDataset(Dataset):
         
         if len(pc) < self.points_num:
             pc_pad = np.zeros((self.points_num, 3))
+            lbl_pad = np.zeros((self.points_num))
             pc_pad[:len(pc), :] = pc
+            lbl_pad[:len(pc)] = lbl
             pc = torch.from_numpy(pc_pad).float().cuda()
+            lbl = torch.from_numpy(lbl_pad).type(torch.int64).cuda()
         else:
             pc = torch.from_numpy(pc).unsqueeze(0).float().cuda()
+            lbl = torch.from_numpy(lbl).type(torch.int64).cuda()
             pc = pc.contiguous()
             input_pcid = furthest_point_sample(pc, self.points_num).long().reshape(-1)
             pc = pc[:, input_pcid, :].squeeze()
-
+            assert len(lbl.shape) == 1
+            lbl = lbl[input_pcid]
             # if self.split == 'trn':
                 # Add Gaussian noise
                 # noise = 0.01 * np.random.randn(len(pc_lbl), 3)
@@ -118,8 +124,8 @@ class PartDataset(Dataset):
                 
                 # Random 3D rotation
                 # rotation_matrix = random_rotation_matrix()
-                # pc_lbl = torch.from_numpy((rotation_matrix @ pc_lbl.cpu().numpy().T).T).float().cuda()
-        return taxomony_id, model_id, pc.squeeze() 
+                # pc_lbl = torch.from_numpy((rotation_matrix @ pc_lbl.cpu().numpy().T).T).float().cuda()        
+        return taxomony_id, model_id, pc.squeeze(), lbl
         
     def __len__(self):
         return len(self.valid_data) 
