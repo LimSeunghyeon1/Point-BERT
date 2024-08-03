@@ -51,12 +51,17 @@ def random_rotation_matrix():
     return rotation_matrix
 
 class PartDataset(Dataset):
-    def __init__(self, split, points_num, dirpath):
+    def __init__(self, split, points_num, dirpath, **kwargs):
         self.split  = split
         self.dirpath = dirpath
         self.valid_data = self._load_data()
         self.points_num = points_num
-        
+        if 'mpn' in kwargs.keys():
+            self.mpn = kwargs['mpn']
+            self.num_nodes = kwargs['num_nodes']
+
+        else:
+            self.mpn = False
     def __getitem__(self, index):
         tic = time.time()
         cloud_path = self.valid_data[index]
@@ -69,10 +74,13 @@ class PartDataset(Dataset):
         assert model_id.isdigit(), model_id
         model_id = int(model_id)
         # faucet인지 아닌지 체크용
+
         for instance_pose_dict in instance_pose_json.values():
             if instance_pose_dict['index'] == 0:
-                # assert instance_pose_dict['name'] == 'Faucet' , instance_pose_dict #HARDCODED
                 taxomony_id = instance_pose_dict['name']
+                
+                
+        
         # Ply 파일 읽기
         ply_data = PlyData.read(cloud_path)
         
@@ -89,7 +97,46 @@ class PartDataset(Dataset):
         alpha = vertex_data['alpha']
         label = vertex_data['label'] - 1
         assert label.min() == 0 # 0은 없었다고 가정
+        assert label.max() < self.num_nodes
+        if self.mpn:
+            angle = AnglE.from_pretrained('SeanLee97/angle-bert-base-uncased-nli-en-v1', pooling_strategy='cls_avg').cuda()
             
+            instance2langemb = torch.zeros(self.num_nodes, 768).cuda() # HARDCODED
+            for instance_pose_dict in instance_pose_json.values():
+                if instance_pose_dict['index'] != 0:
+                    idx = instance_pose_dict['index'] - 1 #HARDCODED 0은 없었다.
+                    instance2langemb[idx] = angle.encode([instance_pose_dict['name']], to_numpy=False)[0] #N 768
+                    norm = torch.norm(instance2langemb[idx], p=2, dim=-1, keepdim=True)
+                    # 벡터를 노름으로 나누어 단위 벡터를 만듭니다.
+                    instance2langemb[idx] = instance2langemb[idx] / (norm + 1e-6)
+                    
+            joint_info_dict = dict()
+            joint_info_dict['confidence'] = torch.zeros(self.num_nodes, self.num_nodes, dtype=torch.float32).cuda()
+            joint_info_dict['type'] = torch.zeros(self.num_nodes, self.num_nodes, 2, dtype=torch.float32).cuda()
+            joint_info_dict['qpos'] = torch.full((self.num_nodes, self.num_nodes),-1, dtype=torch.float32).cuda()
+            # joint information도 추가
+            with open(os.path.join(instance_pose_path, 'joint_cfg.json'), 'r') as f:
+                joint_dict = json.load(f)
+            
+            for joint_info in joint_dict.values():
+                joint_info_dict['confidence'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1] = 1
+                if joint_info['type'] == 'prismatic':
+                    joint_info_dict['type'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1][0] = 1
+                elif joint_info['type'] == 'revolute_unwrapped': # sapien 시뮬레이터에서 limit이 있는 revolute는 revolute_unwrapped로 거꾸로 되어있음. 확인 요망.
+                    #limit이 있는 revolute joint만 학습한다.
+                    joint_info_dict['type'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1][1] = 1
+                elif joint_info['type'] == 'revolute':
+                    pass
+                else:
+                    print(joint_info['type'])
+                    raise NotImplementedError
+                qpos_range = joint_info['qpos_limit'][1] - joint_info['qpos_limit'][0]
+                if np.isfinite(qpos_range):
+                    assert joint_info['type'] == 'revolute_unwrapped' or joint_info['type'] == 'prismatic', instance_path
+                    joint_info_dict['qpos'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1] = (joint_info['qpos'] - joint_info['qpos_limit'][0]) / qpos_range
+                    assert joint_info_dict['qpos'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1] >= 0 and joint_info_dict['qpos'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1] <= 1, joint_info_dict['qpos']
+                else:
+                    assert joint_info['type'] == 'revolute' or joint_info['type'] == 'prismatic'
         # Numpy array로 변환
         vertex_array = np.vstack((x, y, z, red, green, blue, alpha, label)).T
         if self.split == 'trn':
@@ -125,7 +172,10 @@ class PartDataset(Dataset):
                 # Random 3D rotation
                 # rotation_matrix = random_rotation_matrix()
                 # pc_lbl = torch.from_numpy((rotation_matrix @ pc_lbl.cpu().numpy().T).T).float().cuda()        
-        return taxomony_id, model_id, pc.squeeze(), lbl
+        if self.mpn:
+            return taxomony_id, model_id, pc.squeeze(), lbl, instance2langemb, joint_info_dict
+        else:
+            return taxomony_id, model_id, pc.squeeze(), lbl
         
     def __len__(self):
         return len(self.valid_data) 

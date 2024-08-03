@@ -158,13 +158,14 @@ def chamfer_distance_matrix(xyz1_matrix, xyz2_matrix):
     xyz1_matrix = get_mean_pointcloud(xyz1_matrix)
     
     
-    cdist = ChamferDistanceL2(ignore_zeros=True)
+    cdist = ChamferDistanceL2(ignore_zeros=False)
     dist_matrix = torch.zeros(B, num_labels, num_groups).cuda()
     for i in range(num_labels):
         for j in range(num_groups):
             xyz1 = xyz1_matrix[:, i, ...]
             xyz2 = xyz2_matrix[:, j, ...]
             dist_matrix[:, i, j] = cdist(xyz1, xyz2)
+
     return dist_matrix
 
 def shuffle_tensor(tensor):

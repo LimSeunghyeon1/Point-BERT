@@ -14,24 +14,60 @@ from extensions.chamfer_dist import ChamferDistanceL1, ChamferDistanceL2
 class Metrics(object):
     ITEMS = [{
         'name': 'F-Score',
-        'enabled': True,
+        'enabled': False,
         'eval_func': 'cls._get_f_score',
         'is_greater_better': True,
         'init_value': 0
     }, {
         'name': 'CDL1',
-        'enabled': True,
+        'enabled': False,
         'eval_func': 'cls._get_chamfer_distancel1',
         'eval_object': ChamferDistanceL1(ignore_zeros=True),
         'is_greater_better': False,
         'init_value': 32767
     }, {
         'name': 'CDL2',
-        'enabled': True,
+        'enabled': False, # mpn 버전에서는 다 disabled
         'eval_func': 'cls._get_chamfer_distancel2',
         'eval_object': ChamferDistanceL2(ignore_zeros=True),
         'is_greater_better': False,
         'init_value': 32767
+    }, {
+        'name': 'Language_ACC',
+        'enabled': True, # mpn 버전에서는 다 disabled
+        'eval_func': 'cls._get_language_acc',
+        'eval_object': ChamferDistanceL2(ignore_zeros=True),
+        'is_greater_better': False,
+        'init_value': 0
+    }, {
+       'name': 'Edge_Conf_ACC',
+        'enabled': True, # mpn 버전에서는 다 disabled
+        'eval_func': 'cls._get_edge_conf_acc',
+        'eval_object': ChamferDistanceL2(ignore_zeros=True),
+        'is_greater_better': False,
+        'init_value': 0
+        
+    }, {
+        'name': 'Edge_Type_ACC',
+        'enabled': True, # mpn 버전에서는 다 disabled
+        'eval_func': 'cls._get_edge_type_acc',
+        'eval_object': ChamferDistanceL2(ignore_zeros=True),
+        'is_greater_better': False,
+        'init_value': 0
+    }, {
+        'name': 'Qpos_Angle_Acc_10', #ground truth와 10도 이하로 차이 나는 joint 비율 (revolute)
+        'enabled': True, # mpn 버전에서는 다 disabled
+        'eval_func': 'cls._get_angle_acc_10',
+        'eval_object': ChamferDistanceL2(ignore_zeros=True),
+        'is_greater_better': False,
+        'init_value': 0
+    }, {
+        'name': 'Qpos_Trans_Acc_0.1', #ground truth와 10cm 이하로 차이 나는 joint 비율 (translation)
+        'enabled': True, # mpn 버전에서는 다 disabled
+        'eval_func': 'cls._get_trans_acc_01',
+        'eval_object': ChamferDistanceL2(ignore_zeros=True),
+        'is_greater_better': False,
+        'init_value': 0
     }]
 
     @classmethod
@@ -52,6 +88,26 @@ class Metrics(object):
     def names(cls):
         _items = cls.items()
         return [i['name'] for i in _items]
+
+    @classmethod
+    def _get_language_acc(cls):
+        pass
+    
+    @classmethod
+    def _get_edge_conf_acc(cls):
+        pass
+    
+    @classmethod
+    def _get_edge_type_acc(cls):
+        pass
+    
+    @classmethod
+    def _get_angle_acc_10(cls):
+        pass
+    
+    @classmethod
+    def _get_trans_acc_01(cls):
+        pass
 
     @classmethod
     def _get_f_score(cls, pred, gt, th=0.01):
