@@ -90,7 +90,9 @@ class Metrics(object):
         return [i['name'] for i in _items]
 
     @classmethod
-    def _get_language_acc(cls):
+    def _get_language_acc(cls, pred_out, target_out):
+        # target_out B, num_nodes, 768
+        
         pass
     
     @classmethod

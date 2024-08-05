@@ -97,12 +97,14 @@ class PartDataset(Dataset):
         alpha = vertex_data['alpha']
         label = vertex_data['label'] - 1
         assert label.min() == 0 # 0은 없었다고 가정
-        assert label.max() < self.num_nodes
+        assert label.max() < self.num_nodes, instance_pose_path
         if self.mpn:
+                
             angle = AnglE.from_pretrained('SeanLee97/angle-bert-base-uncased-nli-en-v1', pooling_strategy='cls_avg').cuda()
             
             instance2langemb = torch.zeros(self.num_nodes, 768).cuda() # HARDCODED
             for instance_pose_dict in instance_pose_json.values():
+                
                 if instance_pose_dict['index'] != 0:
                     idx = instance_pose_dict['index'] - 1 #HARDCODED 0은 없었다.
                     instance2langemb[idx] = angle.encode([instance_pose_dict['name']], to_numpy=False)[0] #N 768
