@@ -116,6 +116,8 @@ class PartDataset(Dataset):
             joint_info_dict['confidence'] = torch.zeros(self.num_nodes, self.num_nodes, dtype=torch.float32).cuda()
             joint_info_dict['type'] = torch.zeros(self.num_nodes, self.num_nodes, 2, dtype=torch.float32).cuda()
             joint_info_dict['qpos'] = torch.full((self.num_nodes, self.num_nodes),-1, dtype=torch.float32).cuda()
+            joint_info_dict['qpos_min'] = torch.zeros(self.num_nodes, self.num_nodes, dtype=torch.float32).cuda()
+            joint_info_dict['qpos_max'] = torch.zeros(self.num_nodes, self.num_nodes, dtype=torch.float32).cuda()
             # joint information도 추가
             with open(os.path.join(instance_pose_path, 'joint_cfg.json'), 'r') as f:
                 joint_dict = json.load(f)
@@ -124,7 +126,7 @@ class PartDataset(Dataset):
                 joint_info_dict['confidence'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1] = 1
                 if joint_info['type'] == 'prismatic':
                     joint_info_dict['type'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1][0] = 1
-                elif joint_info['type'] == 'revolute_unwrapped': # sapien 시뮬레이터에서 limit이 있는 revolute는 revolute_unwrapped로 거꾸로 되어있음. 확인 요망.
+                elif joint_info['type'] == 'revolute_unwrapped': 
                     #limit이 있는 revolute joint만 학습한다.
                     joint_info_dict['type'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1][1] = 1
                 elif joint_info['type'] == 'revolute':
@@ -133,7 +135,11 @@ class PartDataset(Dataset):
                     print(joint_info['type'])
                     raise NotImplementedError
                 qpos_range = joint_info['qpos_limit'][1] - joint_info['qpos_limit'][0]
+                assert qpos_range > 0, qpos_range
                 if np.isfinite(qpos_range):
+                    if self.split != 'trn':
+                        joint_info_dict['qpos_min'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1] = joint_info['qpos_limit'][0]
+                        joint_info_dict['qpos_max'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1] = joint_info['qpos_limit'][1]
                     assert joint_info['type'] == 'revolute_unwrapped' or joint_info['type'] == 'prismatic', instance_path
                     joint_info_dict['qpos'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1] = (joint_info['qpos'] - joint_info['qpos_limit'][0]) / qpos_range
                     assert joint_info_dict['qpos'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1] >= 0 and joint_info_dict['qpos'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1] <= 1, joint_info_dict['qpos']

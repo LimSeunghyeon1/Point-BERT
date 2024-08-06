@@ -20,6 +20,20 @@ class AverageMeter(object):
             self._val[0] = values
             self._sum[0] += values
             self._count[0] += 1
+            
+    def get_index_by_name(self, name):
+        return self.items.index(name)
+    
+    def update_index(self, values, idx):
+        self._val[idx] = values
+        self._sum[idx] += values
+        self._count[idx] += 1
+    
+    def update_index_multiple(self, values, cnt, idx):
+        assert cnt != 0
+        self._val[idx] = values / cnt
+        self._sum[idx] += values
+        self._count[idx] += cnt
 
     def val(self, idx=None):
         if idx is None:
