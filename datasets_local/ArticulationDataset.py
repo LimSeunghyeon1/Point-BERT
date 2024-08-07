@@ -99,7 +99,6 @@ class PartDataset(Dataset):
         assert label.min() == 0 # 0은 없었다고 가정
         assert label.max() < self.num_nodes, instance_pose_path
         if self.mpn:
-                
             angle = AnglE.from_pretrained('SeanLee97/angle-bert-base-uncased-nli-en-v1', pooling_strategy='cls_avg').cuda()
             
             instance2langemb = torch.zeros(self.num_nodes, 768).cuda() # HARDCODED
@@ -115,7 +114,7 @@ class PartDataset(Dataset):
             joint_info_dict = dict()
             joint_info_dict['confidence'] = torch.zeros(self.num_nodes, self.num_nodes, dtype=torch.float32).cuda()
             joint_info_dict['type'] = torch.zeros(self.num_nodes, self.num_nodes, 2, dtype=torch.float32).cuda()
-            joint_info_dict['qpos'] = torch.full((self.num_nodes, self.num_nodes),-1, dtype=torch.float32).cuda()
+            joint_info_dict['qpos'] = torch.full((self.num_nodes, self.num_nodes, 2),-1, dtype=torch.float32).cuda()
             joint_info_dict['qpos_min'] = torch.zeros(self.num_nodes, self.num_nodes, dtype=torch.float32).cuda()
             joint_info_dict['qpos_max'] = torch.zeros(self.num_nodes, self.num_nodes, dtype=torch.float32).cuda()
             # joint information도 추가
@@ -141,8 +140,12 @@ class PartDataset(Dataset):
                         joint_info_dict['qpos_min'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1] = joint_info['qpos_limit'][0]
                         joint_info_dict['qpos_max'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1] = joint_info['qpos_limit'][1]
                     assert joint_info['type'] == 'revolute_unwrapped' or joint_info['type'] == 'prismatic', instance_path
-                    joint_info_dict['qpos'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1] = (joint_info['qpos'] - joint_info['qpos_limit'][0]) / qpos_range
-                    assert joint_info_dict['qpos'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1] >= 0 and joint_info_dict['qpos'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1] <= 1, joint_info_dict['qpos']
+                    if joint_info_dict['type'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1][0] == 1:
+                        assert joint_info_dict['qpos'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1][1] == -1
+                        joint_info_dict['qpos'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1][0] = (joint_info['qpos'] - joint_info['qpos_limit'][0]) / qpos_range
+                    if joint_info_dict['type'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1][1] == 1:
+                        assert joint_info_dict['qpos'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1][0] == -1
+                        joint_info_dict['qpos'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1][1] = (joint_info['qpos'] - joint_info['qpos_limit'][0]) / qpos_range
                 else:
                     assert joint_info['type'] == 'revolute' or joint_info['type'] == 'prismatic'
         # Numpy array로 변환
@@ -181,7 +184,7 @@ class PartDataset(Dataset):
                 # rotation_matrix = random_rotation_matrix()
                 # pc_lbl = torch.from_numpy((rotation_matrix @ pc_lbl.cpu().numpy().T).T).float().cuda()        
         if self.mpn:
-            return taxomony_id, model_id, pc.squeeze(), lbl, instance2langemb, joint_info_dict
+            return taxomony_id, model_id, pc.squeeze(), lbl, instance2langemb, joint_info_dict, cloud_path
         else:
             return taxomony_id, model_id, pc.squeeze(), lbl
         
