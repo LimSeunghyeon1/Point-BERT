@@ -181,7 +181,7 @@ class PartDataset(Dataset):
                 # rotation_matrix = random_rotation_matrix()
                 # pc_lbl = torch.from_numpy((rotation_matrix @ pc_lbl.cpu().numpy().T).T).float().cuda()        
         if self.mpn:
-            return taxomony_id, model_id, pc.squeeze(), lbl, instance2langemb, joint_info_dict
+            return taxomony_id, model_id, pc.squeeze(), lbl, instance2langemb, joint_info_dict, cloud_path
         else:
             return taxomony_id, model_id, pc.squeeze(), lbl
         

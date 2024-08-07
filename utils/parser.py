@@ -68,6 +68,8 @@ def get_args():
         '--shot', type=int, default=-1)
     parser.add_argument(
         '--fold', type=int, default=-1)
+    parser.add_argument('--object_name', type = str, default=None, help = 'experiment name')
+    parser.add_argument('--only_dvae', action='store_true', default=None, help = 'experiment name')
     
     args = parser.parse_args()
 
