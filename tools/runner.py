@@ -12,7 +12,7 @@ from extensions.chamfer_dist import ChamferDistanceL1, ChamferDistanceL2
 import math
 import cv2
 import numpy as np
-from datasets_local.ArticulationDataset import PartDataset
+from datasets_local.ArticulationDataset_dvae import PartDataset
 from torch.utils.data import DataLoader
 # from extensions.chamfer_dist import chamfer_distance_matrix
 # from extensions.label_pointcloud import label_pointcloud
