@@ -124,7 +124,10 @@ class PartDataset(Dataset):
             
             for joint_info in joint_dict.values():
                 joint_info_dict['confidence'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1] = 1
-                if joint_info['type'] == 'prismatic':
+                qpos_range = joint_info['qpos_limit'][1] - joint_info['qpos_limit'][0]
+                if qpos_range == 0: # door에 있는 exception handling
+                    continue
+                elif joint_info['type'] == 'prismatic':
                     joint_info_dict['type'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1][0] = 1
                 elif joint_info['type'] == 'revolute_unwrapped': 
                     #limit이 있는 revolute joint만 학습한다.
@@ -134,8 +137,7 @@ class PartDataset(Dataset):
                 else:
                     print(joint_info['type'])
                     raise NotImplementedError
-                qpos_range = joint_info['qpos_limit'][1] - joint_info['qpos_limit'][0]
-                assert qpos_range > 0, qpos_range
+                
                 if np.isfinite(qpos_range):
                     if self.split != 'trn':
                         joint_info_dict['qpos_min'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1] = joint_info['qpos_limit'][0]

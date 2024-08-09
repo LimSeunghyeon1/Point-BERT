@@ -67,6 +67,5 @@ def main():
     else:
         run_net(args, config, train_writer, val_writer)
 
-
 if __name__ == '__main__':
     main()
