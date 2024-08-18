@@ -137,9 +137,8 @@ class PartDataset(Dataset):
                 qpos_range = joint_info['qpos_limit'][1] - joint_info['qpos_limit'][0]
                 # assert qpos_range > 0, qpos_range
                 if np.isfinite(qpos_range) and qpos_range != 0:
-                    if self.split != 'trn':
-                        joint_info_dict['qpos_min'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1] = joint_info['qpos_limit'][0]
-                        joint_info_dict['qpos_max'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1] = joint_info['qpos_limit'][1]
+                    joint_info_dict['qpos_min'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1] = joint_info['qpos_limit'][0]
+                    joint_info_dict['qpos_max'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1] = joint_info['qpos_limit'][1]
                     assert joint_info['type'] == 'revolute_unwrapped' or joint_info['type'] == 'prismatic', instance_path
                     joint_info_dict['qpos'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1] = (joint_info['qpos'] - joint_info['qpos_limit'][0]) / qpos_range
                     assert joint_info_dict['qpos'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1] >= 0 and joint_info_dict['qpos'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1] <= 1, joint_info_dict['qpos']
