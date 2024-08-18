@@ -135,8 +135,8 @@ class PartDataset(Dataset):
                     print(joint_info['type'])
                     raise NotImplementedError
                 qpos_range = joint_info['qpos_limit'][1] - joint_info['qpos_limit'][0]
-                assert qpos_range > 0, qpos_range
-                if np.isfinite(qpos_range):
+                # assert qpos_range > 0, qpos_range
+                if np.isfinite(qpos_range) and qpos_range != 0:
                     if self.split != 'trn':
                         joint_info_dict['qpos_min'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1] = joint_info['qpos_limit'][0]
                         joint_info_dict['qpos_max'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1] = joint_info['qpos_limit'][1]
@@ -144,7 +144,8 @@ class PartDataset(Dataset):
                     joint_info_dict['qpos'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1] = (joint_info['qpos'] - joint_info['qpos_limit'][0]) / qpos_range
                     assert joint_info_dict['qpos'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1] >= 0 and joint_info_dict['qpos'][joint_info['parent_link']['index']-1][joint_info['child_link']['index']-1] <= 1, joint_info_dict['qpos']
                 else:
-                    assert joint_info['type'] == 'revolute' or joint_info['type'] == 'prismatic'
+                    # assert joint_info['type'] == 'revolute' or joint_info['type'] == 'prismatic'
+                    pass
         # Numpy array로 변환
         vertex_array = np.vstack((x, y, z, red, green, blue, alpha, label)).T
         if self.split == 'trn':
