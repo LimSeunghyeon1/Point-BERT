@@ -54,6 +54,10 @@ class PartDataset(Dataset):
     def __init__(self, split, points_num, dirpath, **kwargs):
         self.split  = split
         self.dirpath = dirpath
+        if 'start_idx' in kwargs.keys():
+            self.start_idx = kwargs['start_idx']
+        else:
+            self.start_idx = 0
         self.valid_data = self._load_data()
         self.points_num = points_num
         if 'mpn' in kwargs.keys():
@@ -62,6 +66,7 @@ class PartDataset(Dataset):
 
         else:
             self.mpn = False
+        
     def __getitem__(self, index):
         tic = time.time()
         cloud_path = self.valid_data[index]
@@ -196,7 +201,10 @@ class PartDataset(Dataset):
             data_label = dirpath.split('/')[-1]
             for filename in filenames:
                 if filename == 'full_point_cloud.ply':
-                    total_valid_paths.append(os.path.join(dirpath, filename))
+                    obj_idx = dirpath.split('/')[-2]
+                    assert obj_idx.isdigit(), obj_idx
+                    if int(obj_idx) >= self.start_idx:
+                        total_valid_paths.append(os.path.join(dirpath, filename))
             # if data_label.split('_')[0].isdigit():
             #     total_valid_paths.append(dirpath)
         return total_valid_paths    

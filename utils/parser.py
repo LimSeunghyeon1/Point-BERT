@@ -70,10 +70,12 @@ def get_args():
         '--fold', type=int, default=-1)
     parser.add_argument('--object_name', type = str, default=None, help = 'experiment name')
     parser.add_argument('--only_dvae', action='store_true', default=None, help = 'experiment name')
+    parser.add_argument('--add_dvae', action='store_true', default=None)
     parser.add_argument('--num_iteration', type = int, default=None, help = 'num iteration')
     parser.add_argument('--num_heads', type = int, default=None, help = 'num iteration')
     parser.add_argument('--qpos_mode', action='store_true', default=False)
-    
+    parser.add_argument(
+        '--add_dvae_start_idx', type=int, default=0)
     args = parser.parse_args()
 
     if args.test and args.resume:
