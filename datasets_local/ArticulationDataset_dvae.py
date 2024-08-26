@@ -83,11 +83,15 @@ class PartDataset(Dataset):
         x = vertex_data['x']
         y = vertex_data['y']
         z = vertex_data['z']
+        sdf = vertex_data['sdf']
         label = vertex_data['label'] - 1
         assert label.min() == 0 # 0은 없었다고 가정
             
         # Numpy array로 변환
-        vertex_array = np.vstack((x, y, z, label)).T
+        vertex_array = np.vstack((x, y, z, sdf, label)).T
+        # remain only negative sdf
+        vertex_array = vertex_array[vertex_array[...,-2] < 0]
+        
         if self.split == 'trn':
             #unorganized로 바꿈
             shuf = list(range(len(vertex_array)))
@@ -96,6 +100,7 @@ class PartDataset(Dataset):
         
         pc = vertex_array[:, :3]
         lbl = vertex_array[:, -1]
+        assert np.unique(lbl).min() >= 0
         
         if len(pc) < self.points_num:
             pc_pad = np.zeros((self.points_num, 3))
