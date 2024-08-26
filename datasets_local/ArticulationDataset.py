@@ -96,10 +96,6 @@ class PartDataset(Dataset):
         x = vertex_data['x']
         y = vertex_data['y']
         z = vertex_data['z']
-        red = vertex_data['red']
-        green = vertex_data['green']
-        blue = vertex_data['blue']
-        alpha = vertex_data['alpha']
         label = vertex_data['label'] - 1
         assert label.min() == 0 # 0은 없었다고 가정
         assert label.max() < self.num_nodes, instance_pose_path
@@ -151,7 +147,7 @@ class PartDataset(Dataset):
                     # assert joint_info['type'] == 'revolute' or joint_info['type'] == 'prismatic'
                     pass
         # Numpy array로 변환
-        vertex_array = np.vstack((x, y, z, red, green, blue, alpha, label)).T
+        vertex_array = np.vstack((x, y, z, label)).T
         if self.split == 'trn':
             #unorganized로 바꿈
             shuf = list(range(len(vertex_array)))
@@ -159,7 +155,6 @@ class PartDataset(Dataset):
             vertex_array = vertex_array[shuf]
         
         pc = vertex_array[:, :3]
-        color = vertex_array[:, 3:6]
         lbl = vertex_array[:, -1]
         
         if len(pc) < self.points_num:
@@ -200,7 +195,7 @@ class PartDataset(Dataset):
         for dirpath, dirname, filenames in os.walk(dir):
             data_label = dirpath.split('/')[-1]
             for filename in filenames:
-                if filename == 'full_point_cloud.ply':
+                if filename == 'points_with_sdf_label.ply':
                     obj_idx = dirpath.split('/')[-2]
                     assert obj_idx.isdigit(), obj_idx
                     if int(obj_idx) >= self.start_idx:
@@ -350,7 +345,7 @@ class PartDatasetWithLang(Dataset):
         for dirpath, dirname, filenames in os.walk(dir):
             data_label = dirpath.split('/')[-1]
             for filename in filenames:
-                if filename == 'full_point_cloud.ply':
+                if filename == 'points_with_sdf_label.ply':
                     total_valid_paths.append(os.path.join(dirpath, filename))
             # if data_label.split('_')[0].isdigit():
             #     total_valid_paths.append(dirpath)
