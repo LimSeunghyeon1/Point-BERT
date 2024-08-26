@@ -13,10 +13,12 @@ import math
 import cv2
 import numpy as np
 from datasets_local.ArticulationDataset_dvae import PartDataset
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, DistributedSampler
 # from extensions.chamfer_dist import chamfer_distance_matrix
 # from extensions.label_pointcloud import label_pointcloud
 import torch.nn.functional as F
+ 
+
 
 
 
@@ -73,7 +75,13 @@ def run_net(args, config, train_writer=None, val_writer=None):
     train_dataset = PartDataset('trn', config.dataset.points_num, config.dataset.train.dirpath)
     valid_dataset = PartDataset('valid', config.dataset.points_num, config.dataset.val.dirpath)
     
-    train_dataloader = DataLoader(train_dataset, batch_size=config.dataset.batch_size, shuffle=True)
+    if args.distributed:
+        train_sampler = DistributedSampler(train_dataset, num_replicas=args.world_size, rank=args.local_rank)
+        train_dataloader = DataLoader(train_dataset, batch_size=config.dataset.batch_size, sampler=train_sampler)
+    else:
+        train_dataloader = DataLoader(train_dataset, batch_size=config.dataset.batch_size, shuffle=True)
+    
+    
     test_dataloader = DataLoader(valid_dataset, batch_size=1)
     
     
@@ -120,7 +128,9 @@ def run_net(args, config, train_writer=None, val_writer=None):
     # training
     base_model.zero_grad()
     for epoch in range(start_epoch, config.max_epoch + 1):
-        
+        if args.distributed:
+            train_sampler.set_epoch(epoch)  # 샘플러 재설정
+
         base_model.train()
 
         epoch_start_time = time.time()

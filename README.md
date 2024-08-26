@@ -84,6 +84,11 @@ bash ./scripts/test.sh <GPU_IDS> \
     --exp_name <name>
 ```
 
+## Distributed Data Parallel
+```
+bash ./scripts/dist_train.sh <NUM GPUS> <PORT>   --config cfgs/ShapeNet55_models/dvae.yaml    --exp_name <name> 
+```
+
 ### Point-BERT pre-training
 To pre-train the Point-BERT models on ShapeNet, simply run:
 (complete the `ckpt` in `cfgs/Mixup_models/Point-BERT.yaml` first )
