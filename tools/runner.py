@@ -79,7 +79,7 @@ def run_net(args, config, train_writer=None, val_writer=None):
         train_sampler = DistributedSampler(train_dataset, num_replicas=args.world_size, rank=args.local_rank)
         train_dataloader = DataLoader(train_dataset, batch_size=config.dataset.batch_size, sampler=train_sampler)
     else:
-        train_dataloader = DataLoader(train_dataset, batch_size=config.dataset.batch_size, shuffle=True)
+        train_dataloader = DataLoader(train_dataset, batch_size=config.dataset.batch_size, shuffle=False)
     
     
     test_dataloader = DataLoader(valid_dataset, batch_size=1)
@@ -156,13 +156,9 @@ def run_net(args, config, train_writer=None, val_writer=None):
             
             temp = get_temp(config, n_itr)
 
-            
             ret = base_model(points, temperature = temp, hard = False)
-
             loss_1, loss_2 = base_model.module.get_loss(ret, points)
-
             _loss = compute_loss(loss_1, loss_2, config, n_itr, train_writer)
-
             _loss.backward()
 
             # forward

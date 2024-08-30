@@ -201,7 +201,8 @@ class PartDataset(Dataset):
         for dirpath, dirname, filenames in os.walk(dir):
             data_label = dirpath.split('/')[-1]
             for filename in filenames:
-                if filename == 'points_with_sdf_label.ply':
+                # if filename == 'points_with_sdf_label.ply':
+                if filename == 'full_point_cloud.ply':
                     obj_idx = dirpath.split('/')[-2]
                     assert obj_idx.isdigit(), obj_idx
                     if int(obj_idx) >= self.start_idx:

@@ -58,13 +58,11 @@ class PartDataset(Dataset):
         self.points_num = points_num
         
     def __getitem__(self, index):
-        tic = time.time()
         cloud_path = self.valid_data[index]
         instance_path = '/'.join(cloud_path.split('/')[:-2])
         instance_pose_path = '/'.join(cloud_path.split('/')[:-1])
         with open(os.path.join(instance_path, 'link_cfg.json'), 'r') as f:
             instance_pose_json = json.load(f)
-        
         model_id = instance_path.split('/')[-1]
         assert model_id.isdigit(), model_id
         model_id = int(model_id)
@@ -75,7 +73,6 @@ class PartDataset(Dataset):
                 taxomony_id = instance_pose_dict['name']
         # Ply 파일 읽기
         ply_data = PlyData.read(cloud_path)
-        
         # Vertex 데이터 추출
         vertex_data = ply_data['vertex']
 
@@ -85,12 +82,12 @@ class PartDataset(Dataset):
         z = vertex_data['z']
         sdf = vertex_data['sdf']
         label = vertex_data['label'] - 1
-        assert label.min() == 0 # 0은 없었다고 가정
             
         # Numpy array로 변환
         vertex_array = np.vstack((x, y, z, sdf, label)).T
         # remain only negative sdf
         vertex_array = vertex_array[vertex_array[...,-2] < 0]
+        assert vertex_array[...,-1].min() == 0 # 0은 없었다고 가정
         
         if self.split == 'trn':
             #unorganized로 바꿈
@@ -125,6 +122,7 @@ class PartDataset(Dataset):
                 # Random 3D rotation
                 # rotation_matrix = random_rotation_matrix()
                 # pc_lbl = torch.from_numpy((rotation_matrix @ pc_lbl.cpu().numpy().T).T).float().cuda()        
+        
         return taxomony_id, model_id, pc.squeeze(), lbl
         
     def __len__(self):
@@ -137,7 +135,7 @@ class PartDataset(Dataset):
         for dirpath, dirname, filenames in os.walk(dir):
             data_label = dirpath.split('/')[-1]
             for filename in filenames:
-                if filename == 'points_with_sdf_label.ply':
+                if filename == 'points_with_sdf_label_binary.ply':
                     total_valid_paths.append(os.path.join(dirpath, filename))
             # if data_label.split('_')[0].isdigit():
             #     total_valid_paths.append(dirpath)
