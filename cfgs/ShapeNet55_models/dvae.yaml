@@ -41,7 +41,7 @@ model : {
   num_group: 64, 
   encoder_dims: 256,
   num_tokens: 8192,
-  tokens_dims: 768, 
+  tokens_dims: 256, 
   decoder_dims: 256, 
 }
 

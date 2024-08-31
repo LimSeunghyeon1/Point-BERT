@@ -96,6 +96,7 @@ class PartDataset(Dataset):
             vertex_array = vertex_array[shuf]
         
         pc = vertex_array[:, :3]
+        pc = self.pc_norm(pc)
         lbl = vertex_array[:, -1]
         assert np.unique(lbl).min() >= 0
         
@@ -131,11 +132,17 @@ class PartDataset(Dataset):
     def _load_data(self):
         total_valid_paths = []
         dir = self.dirpath
+        
+        #validity check
+        check_data = np.load('tools/whole_data_list.pkl', allow_pickle=True)
 
         for dirpath, dirname, filenames in os.walk(dir):
             data_label = dirpath.split('/')[-1]
             for filename in filenames:
                 if filename == 'points_with_sdf_label_binary.ply':
+                    spt, cat, inst = dirpath.split('/')[-4:-1]
+                    inst = int(inst)
+                    assert check_data[inst] == [cat, spt], f"{inst}, {cat}, {spt}, answer: {check_data[inst]}"
                     total_valid_paths.append(os.path.join(dirpath, filename))
             # if data_label.split('_')[0].isdigit():
             #     total_valid_paths.append(dirpath)

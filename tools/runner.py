@@ -264,7 +264,6 @@ def validate(base_model, test_dataloader, epoch, ChamferDisL1, ChamferDisL2, val
             vis_list = [0, 1000, 1600, 1800, 2400, 3400]
             if val_writer is not None and idx in vis_list: #% 200 == 0:
                 input_pc = points.squeeze().detach().cpu().numpy()
-                print("input point", input_pc.shape)
                 input_pc = misc.get_ptcloud_img(input_pc)
                 val_writer.add_image('Model%02d/Input'% idx , input_pc, epoch, dataformats='HWC')
 
