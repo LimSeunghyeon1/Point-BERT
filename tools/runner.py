@@ -153,6 +153,7 @@ def run_net(args, config, train_writer=None, val_writer=None):
             # else:
             #     raise NotImplementedError(f'Train phase do not support {dataset_name}')
             points = data.cuda()
+            # print("points", points.shape)
             
             temp = get_temp(config, n_itr)
 
