@@ -69,10 +69,11 @@ class PartDataset(Dataset):
         if 'mpn' in kwargs.keys():
             self.mpn = kwargs['mpn']
             self.num_nodes = kwargs['num_nodes']
-
         else:
             self.mpn = False
         
+        self.language_embed_dict = np.load(kwargs['language_embed_file'], allow_pickle=True)
+            
     def __getitem__(self, index):
         tic = time.time()
         cloud_path = self.valid_data[index]
@@ -118,27 +119,15 @@ class PartDataset(Dataset):
         assert label.max() < self.num_nodes, instance_pose_path
         if self.mpn:
                 
-            angle = AnglE.from_pretrained('SeanLee97/angle-bert-base-uncased-nli-en-v1', pooling_strategy='cls_avg').cuda()
+            # angle = AnglE.from_pretrained('SeanLee97/angle-bert-base-uncased-nli-en-v1', pooling_strategy='cls_avg').cuda()
             
             instance2langemb = torch.zeros(self.num_nodes, self.token_dims).cuda() # HARDCODED
             for instance_pose_dict in instance_pose_json.values():
                 
                 if instance_pose_dict['index'] != 0:
                     idx = instance_pose_dict['index'] - 1 #HARDCODED 0은 없었다.
-                    encoded_feat = angle.encode([instance_pose_dict['name']], to_numpy=False)[0] #N 768
-                    if encoded_feat.shape[-1] == self.token_dims:
-                        instance2langemb[idx] = encoded_feat
-                    elif encoded_feat.shape[-1] > self.token_dims:
-                        # do dimensional reduction here...
-                        # 데이터의 평균을 빼서 중앙화(centering)
-                        data_centered = encoded_feat - encoded_feat.mean(dim=0)
-
-                        # SVD를 사용하여 PCA 수행
-                        U, S, V = torch.svd(data_centered)
-
-                        # 주성분 방향으로 데이터를 변환
-                        instance2langemb[idx] = torch.mm(data_centered, V[:, :self.token_dims])
-                     
+                    # encoded_feat = angle.encode([instance_pose_dict['name']], to_numpy=False)[0] #N 768
+                    instance2langemb[idx] = self.language_embed_dict[instance_pose_dict['name']]
                     norm = torch.norm(instance2langemb[idx], p=2, dim=-1, keepdim=True)
                     # 벡터를 노름으로 나누어 단위 벡터를 만듭니다.
                     instance2langemb[idx] = instance2langemb[idx] / (norm + 1e-6)
