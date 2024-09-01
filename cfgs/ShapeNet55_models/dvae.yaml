@@ -34,6 +34,7 @@ dataset : {
           },
   test : { dirpath: '/data/datasets/articulation_project/faucet_0727/test', 
           },
+  data_split_file: '/data/projects/Articulation_project/test/data_tools/whole_data_0829.pkl'
 }
 model : {
   NAME: DiscreteVAE, 

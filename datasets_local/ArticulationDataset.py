@@ -51,13 +51,19 @@ def random_rotation_matrix():
     return rotation_matrix
 
 class PartDataset(Dataset):
-    def __init__(self, split, points_num, dirpath, **kwargs):
+    def __init__(self, split, points_num, dirpath, data_split_file, **kwargs):
         self.split  = split
         self.dirpath = dirpath
+        if 'token_dims' in kwargs.keys():
+            self.token_dims = kwargs['token_dims']
+        else:
+            self.token_dims = 768
         if 'start_idx' in kwargs.keys():
             self.start_idx = kwargs['start_idx']
         else:
             self.start_idx = 0
+        self.data_split_file = data_split_file
+        
         self.valid_data = self._load_data()
         self.points_num = points_num
         if 'mpn' in kwargs.keys():
@@ -96,20 +102,43 @@ class PartDataset(Dataset):
         x = vertex_data['x']
         y = vertex_data['y']
         z = vertex_data['z']
-        sdf = vertex_data['sdf']
         label = vertex_data['label'] - 1
-        assert label.min() == 0 # 0은 없었다고 가정
+        
+        if 'sdf' in vertex_data:
+            sdf = vertex_data['sdf'] 
+            # Numpy array로 변환
+            vertex_array = np.vstack((x, y, z, sdf, label)).T
+            # remain only negative sdf
+            vertex_array = vertex_array[vertex_array[...,-2] < 0]
+        else:
+            vertex_array = np.vstack((x, y, z, label)).T
+            
+        assert vertex_array[...,-1].min() == 0 # 0은 없었다고 가정
+        
         assert label.max() < self.num_nodes, instance_pose_path
         if self.mpn:
                 
             angle = AnglE.from_pretrained('SeanLee97/angle-bert-base-uncased-nli-en-v1', pooling_strategy='cls_avg').cuda()
             
-            instance2langemb = torch.zeros(self.num_nodes, 768).cuda() # HARDCODED
+            instance2langemb = torch.zeros(self.num_nodes, self.token_dims).cuda() # HARDCODED
             for instance_pose_dict in instance_pose_json.values():
                 
                 if instance_pose_dict['index'] != 0:
                     idx = instance_pose_dict['index'] - 1 #HARDCODED 0은 없었다.
-                    instance2langemb[idx] = angle.encode([instance_pose_dict['name']], to_numpy=False)[0] #N 768
+                    encoded_feat = angle.encode([instance_pose_dict['name']], to_numpy=False)[0] #N 768
+                    if encoded_feat.shape[-1] == self.token_dims:
+                        instance2langemb[idx] = encoded_feat
+                    elif encoded_feat.shape[-1] > self.token_dims:
+                        # do dimensional reduction here...
+                        # 데이터의 평균을 빼서 중앙화(centering)
+                        data_centered = encoded_feat - encoded_feat.mean(dim=0)
+
+                        # SVD를 사용하여 PCA 수행
+                        U, S, V = torch.svd(data_centered)
+
+                        # 주성분 방향으로 데이터를 변환
+                        instance2langemb[idx] = torch.mm(data_centered, V[:, :self.token_dims])
+                     
                     norm = torch.norm(instance2langemb[idx], p=2, dim=-1, keepdim=True)
                     # 벡터를 노름으로 나누어 단위 벡터를 만듭니다.
                     instance2langemb[idx] = instance2langemb[idx] / (norm + 1e-6)
@@ -147,11 +176,7 @@ class PartDataset(Dataset):
                 else:
                     # assert joint_info['type'] == 'revolute' or joint_info['type'] == 'prismatic'
                     pass
-        # Numpy array로 변환
-        vertex_array = np.vstack((x, y, z, sdf, label)).T
-        # remain only negative sdf
-        vertex_array = vertex_array[vertex_array[...,-2] < 0]
-        
+       
         if self.split == 'trn':
             #unorganized로 바꿈
             shuf = list(range(len(vertex_array)))
@@ -161,6 +186,7 @@ class PartDataset(Dataset):
         
         
         pc = vertex_array[:, :3]
+        pc = self.pc_norm(pc)
         lbl = vertex_array[:, -1]
         
         if len(pc) < self.points_num:
@@ -197,16 +223,32 @@ class PartDataset(Dataset):
     def _load_data(self):
         total_valid_paths = []
         dir = self.dirpath
+        #validity check
+        check_data = np.load(self.data_split_file, allow_pickle=True)
 
         for dirpath, dirname, filenames in os.walk(dir):
             data_label = dirpath.split('/')[-1]
-            for filename in filenames:
-                # if filename == 'points_with_sdf_label.ply':
-                if filename == 'full_point_cloud.ply':
-                    obj_idx = dirpath.split('/')[-2]
-                    assert obj_idx.isdigit(), obj_idx
-                    if int(obj_idx) >= self.start_idx:
-                        total_valid_paths.append(os.path.join(dirpath, filename))
+            #validity check
+            if dirpath.split('/')[-1].split('_')[0] == 'pose':
+                assert os.path.isfile(os.path.join(dirpath, 'points_with_sdf_label_binary.ply')) or os.path.isfile(os.path.join(dirpath, 'points_with_labels_binary.ply'))
+                spt, cat, inst = dirpath.split('/')[-4:-1]
+                assert inst.isdigit(), inst
+                inst = int(inst)
+                assert check_data[inst] == [cat, spt], f"{inst}, {cat}, {spt}, answer: {check_data[inst]}"
+                # obj_idx = dirpath.split('/')[-2]
+                # assert obj_idx.isdigit(), obj_idx
+                if os.path.isfile(os.path.join(dirpath, 'points_with_sdf_label_binary.ply')):
+                    total_valid_paths.append(os.path.join(dirpath, 'points_with_sdf_label_binary.ply'))
+                elif os.path.isfile(os.path.join(dirpath, 'points_with_labels_binary.ply')):
+                    total_valid_paths.append(os.path.join(dirpath, 'points_with_labels_binary.ply'))
+                    
+            # for filename in filenames:
+            #     # if filename == 'points_with_sdf_label.ply':
+            #     if filename == 'points_with_sdf_label_binary.ply' or filename == 'points_with_labels_binary.ply':
+            #         obj_idx = dirpath.split('/')[-2]
+            #         assert obj_idx.isdigit(), obj_idx
+            #         if int(obj_idx) >= self.start_idx:
+            #             total_valid_paths.append(os.path.join(dirpath, filename))
             # if data_label.split('_')[0].isdigit():
             #     total_valid_paths.append(dirpath)
         return total_valid_paths    

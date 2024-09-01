@@ -72,8 +72,8 @@ def run_net(args, config, train_writer=None, val_writer=None):
     # build dataset
     # (train_sampler, train_dataloader), (_, test_dataloader) = builder.dataset_builder(args, config.dataset.train), \
     #                                                         builder.dataset_builder(args, config.dataset.val)
-    train_dataset = PartDataset('trn', config.dataset.points_num, config.dataset.train.dirpath)
-    valid_dataset = PartDataset('valid', config.dataset.points_num, config.dataset.val.dirpath)
+    train_dataset = PartDataset('trn', config.dataset.points_num, config.dataset.train.dirpath, config.dataset.data_split_file)
+    valid_dataset = PartDataset('valid', config.dataset.points_num, config.dataset.val.dirpath, config.dataset.data_split_file)
     
     if args.distributed:
         train_sampler = DistributedSampler(train_dataset, num_replicas=args.world_size, rank=args.local_rank)
@@ -158,8 +158,21 @@ def run_net(args, config, train_writer=None, val_writer=None):
 
             ret = base_model(points, temperature = temp, hard = False)
             loss_1, loss_2 = base_model.module.get_loss(ret, points)
+            
+            # print("Points shape:", points.shape)
+            # print("Loss 1 shape:", loss_1.shape)
+            # print("Loss 2 shape:", loss_2.shape)
+            # print("loss1", loss_1, "loss2", loss_2)
+            
             _loss = compute_loss(loss_1, loss_2, config, n_itr, train_writer)
             _loss.backward()
+            
+            for name, param in base_model.named_parameters():
+                if param.grad is not None:
+                    if torch.isnan(param.grad).any():
+                        print(f"NaN detected in gradients of {name} at iteration {n_itr}")
+                    if torch.isinf(param.grad).any():
+                        print(f"Inf detected in gradients of {name} at iteration {n_itr}")
 
             # forward
             if num_iter == config.step_per_update:
@@ -327,7 +340,7 @@ def test_net(args, config):
     print_log('Tester start ... ', logger = logger)
     
     
-    test_dataset = PartDataset('test', config.dataset.points_num, config.dataset.test.dirpath)
+    test_dataset = PartDataset('test', config.dataset.points_num, config.dataset.test.dirpath, config.dataset.data_split_file, language_embed_file=config.dataset.language_embed_file)
     
     test_dataloader = DataLoader(test_dataset, batch_size=1)
     # _, test_dataloader = builder.dataset_builder(args, config.dataset.test)

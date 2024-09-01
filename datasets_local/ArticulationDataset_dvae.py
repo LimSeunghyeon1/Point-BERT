@@ -51,9 +51,10 @@ def random_rotation_matrix():
     return rotation_matrix
 
 class PartDataset(Dataset):
-    def __init__(self, split, points_num, dirpath):
+    def __init__(self, split, points_num, dirpath, data_split_file):
         self.split  = split
         self.dirpath = dirpath
+        self.data_split_file = data_split_file
         self.valid_data = self._load_data()
         self.points_num = points_num
         
@@ -134,7 +135,7 @@ class PartDataset(Dataset):
         dir = self.dirpath
         
         #validity check
-        check_data = np.load('tools/whole_data_list.pkl', allow_pickle=True)
+        check_data = np.load(self.data_split_file, allow_pickle=True)
 
         for dirpath, dirname, filenames in os.walk(dir):
             data_label = dirpath.split('/')[-1]
