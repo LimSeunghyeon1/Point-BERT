@@ -127,7 +127,7 @@ class PartDataset(Dataset):
                 if instance_pose_dict['index'] != 0:
                     idx = instance_pose_dict['index'] - 1 #HARDCODED 0은 없었다.
                     # encoded_feat = angle.encode([instance_pose_dict['name']], to_numpy=False)[0] #N 768
-                    instance2langemb[idx] = self.language_embed_dict[instance_pose_dict['name']]
+                    instance2langemb[idx] = torch.tensor(self.language_embed_dict[instance_pose_dict['name']]).cuda()
                     norm = torch.norm(instance2langemb[idx], p=2, dim=-1, keepdim=True)
                     # 벡터를 노름으로 나누어 단위 벡터를 만듭니다.
                     instance2langemb[idx] = instance2langemb[idx] / (norm + 1e-6)
@@ -214,7 +214,7 @@ class PartDataset(Dataset):
         dir = self.dirpath
         #validity check
         check_data = np.load(self.data_split_file, allow_pickle=True)
-
+        print("checking...")
         for dirpath, dirname, filenames in os.walk(dir):
             data_label = dirpath.split('/')[-1]
             #validity check

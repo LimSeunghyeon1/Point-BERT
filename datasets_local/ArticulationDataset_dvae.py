@@ -288,6 +288,8 @@ class PartDatasetWithLang(Dataset):
         dir = self.dirpath
 
         for dirpath, dirname, filenames in os.walk(dir):
+            if dirpath.split('/')[-1].split('_')[0] == 'pose' and dirpath.split('/')[-1].split('_')[1].isdigit():
+                assert os.path.isfile(os.path.hjoin(dirpath), 'points_with_sdf_label.ply'), dirpath
             data_label = dirpath.split('/')[-1]
             for filename in filenames:
                 if filename == 'points_with_sdf_label.ply':

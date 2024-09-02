@@ -28,13 +28,13 @@ kldweight: {
 dataset : {
   batch_size : 512,
   points_num : 1024,
-  train : { dirpath: '/data/datasets/articulation_project/faucet_0727/train', 
+  train : { dirpath: '../../dvae_dataset/train', 
           },
-  val : { dirpath: '/data/datasets/articulation_project/faucet_0727/val', # this should be changed, test 
+  val : { dirpath: '../../dvae_dataset/val', # this should be changed, test 
           },
-  test : { dirpath: '/data/datasets/articulation_project/faucet_0727/test', 
+  test : { dirpath: '../../dvae_dataset/test', 
           },
-  data_split_file: '/data/projects/Articulation_project/test/data_tools/whole_data_0831.pkl'
+  data_split_file: 'tools/whole_data_0831.pkl'
 }
 model : {
   NAME: DiscreteVAE, 
