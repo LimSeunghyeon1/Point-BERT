@@ -34,7 +34,7 @@ dataset : {
           },
   test : { dirpath: '../../dvae_dataset/test', 
           },
-  data_split_file: 'tools/whole_data_0831.pkl'
+  data_split_file: 'tools/whole_data_0902.pkl'
 }
 model : {
   NAME: DiscreteVAE, 

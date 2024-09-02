@@ -61,6 +61,7 @@ class PartDataset(Dataset):
     def __getitem__(self, index):
         cloud_path = self.valid_data[index]
         instance_path = '/'.join(cloud_path.split('/')[:-2])
+        # print("cloud_path", cloud_path)
         instance_pose_path = '/'.join(cloud_path.split('/')[:-1])
         with open(os.path.join(instance_path, 'link_cfg.json'), 'r') as f:
             instance_pose_json = json.load(f)

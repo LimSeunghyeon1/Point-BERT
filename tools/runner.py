@@ -17,6 +17,11 @@ from torch.utils.data import DataLoader, DistributedSampler
 # from extensions.chamfer_dist import chamfer_distance_matrix
 # from extensions.label_pointcloud import label_pointcloud
 import torch.nn.functional as F
+# os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
+# os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+# os.environ["TORCH_USE_CUDA_DSA"] = '1'
+
+
  
 
 
@@ -166,6 +171,7 @@ def run_net(args, config, train_writer=None, val_writer=None):
             # print("loss1", loss_1, "loss2", loss_2)
             
             _loss = compute_loss(loss_1, loss_2, config, n_itr, train_writer)
+            
             _loss.backward()
             
             for name, param in base_model.named_parameters():
