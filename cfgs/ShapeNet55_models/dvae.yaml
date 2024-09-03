@@ -30,11 +30,11 @@ dataset : {
   points_num : 1024,
   train : { dirpath: '../../dvae_dataset/train', 
           },
-  val : { dirpath: '../../dvae_dataset/val', # this should be changed, test 
+  val : { dirpath: '../../dvae_dataset/val', 
           },
   test : { dirpath: '../../dvae_dataset/test', 
           },
-  data_split_file: 'tools/whole_data_0902.pkl'
+  data_split_file: 'tools/whole_data_0903_final.pkl'
 }
 model : {
   NAME: DiscreteVAE, 
