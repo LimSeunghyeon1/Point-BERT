@@ -28,6 +28,7 @@ kldweight: {
 dataset : {
   batch_size : 512,
   points_num : 1024,
+  normalize : False, # 인풋 포인트클라우드 정규화?
   train : { dirpath: '../../dvae_dataset/train', 
           },
   val : { dirpath: '../../dvae_dataset/val', 
