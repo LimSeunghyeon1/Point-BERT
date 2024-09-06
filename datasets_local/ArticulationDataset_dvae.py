@@ -51,12 +51,13 @@ def random_rotation_matrix():
     return rotation_matrix
 
 class PartDataset(Dataset):
-    def __init__(self, split, points_num, dirpath, data_split_file):
+    def __init__(self, split, points_num, dirpath, data_split_file, normalize):
         self.split  = split
         self.dirpath = dirpath
         self.data_split_file = data_split_file
         self.valid_data = self._load_data()
         self.points_num = points_num
+        self.normalize = normalize
         
     def __getitem__(self, index):
         cloud_path = self.valid_data[index]
@@ -98,7 +99,8 @@ class PartDataset(Dataset):
             vertex_array = vertex_array[shuf]
         
         pc = vertex_array[:, :3]
-        pc = self.pc_norm(pc)
+        if self.normalize:
+            pc = self.pc_norm(pc)
         lbl = vertex_array[:, -1]
         assert np.unique(lbl).min() >= 0
         
