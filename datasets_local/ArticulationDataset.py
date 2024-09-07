@@ -22,7 +22,7 @@ from plyfile import PlyData
 # from angle_emb import AnglE
 
 sys.path.append('./A-SDF/')
-from switch_label import to_switch_label
+from tools_asdf.switch_label import to_switch_label
 
 
 def random_rotation_matrix():
