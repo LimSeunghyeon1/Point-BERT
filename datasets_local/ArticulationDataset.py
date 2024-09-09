@@ -394,7 +394,6 @@ class PartDatasetTableOne(Dataset):
         assert 'sdf' in vertex_data
         label = label[sdf < 0]
         new_label = np.full_like(label, -100)
-        print("new label,", np.unique(new_label), "oh label", np.unique(label))
         if model_id in to_switch_label:
             unique_label = np.unique(label)
             for ul in unique_label:
@@ -442,7 +441,6 @@ class PartDatasetTableOne(Dataset):
                     if model_id in to_switch_label:
                         to_change = to_switch_label[model_id][idx]
                         if to_switch_label[model_id][idx] != -100:
-                            print("switch", idx, "to", to_change, "in object", model_id)        
                             used_indices.add(to_change)
                             # encoded_feat = angle.encode([instance_pose_dict['name']], to_numpy=False)[0] #N 768
                             instance2langemb[to_change] = torch.tensor(self.language_embed_dict[instance_pose_dict['name']]).cuda()
@@ -477,27 +475,28 @@ class PartDatasetTableOne(Dataset):
                 1부터 시작하는 링크 인덱스 
                 '''
                 # parent link와 child link 탐색하고, num_atc parts가=1이면 1,2 num_atc_parts=2이면 1,2,3만본다.
-                p_idx = joint_info['parent_link']['index']
-                c_idx = joint_info['child_link']['index']
+                p_idx = joint_info['parent_link']['index']-1
+                c_idx = joint_info['child_link']['index']-1
                 
                 # 라벨 스위치
                 if model_id in to_switch_label:
-                    to_p_change = to_switch_label[model_id][p_idx-1]
-                    print("pidx with zero start", p_idx-1, "change to", to_p_change)
-                    if to_switch_label[model_id][p_idx-1] == -100:
+                    to_p_change = to_switch_label[model_id][p_idx]
+                    print("pidx with zero start", p_idx, "change to", to_p_change)
+                    if to_switch_label[model_id][p_idx] == -100:
                         continue
                     p_idx = to_p_change
                     
                     
-                    to_c_change = to_switch_label[model_id][c_idx-1]
-                    print("pidx with zero start", c_idx-1, "change to", to_c_change)
-                    if to_switch_label[model_id][c_idx-1] == -100:
+                    to_c_change = to_switch_label[model_id][c_idx]
+                    print("pidx with zero start", c_idx, "change to", to_c_change)
+                    if to_switch_label[model_id][c_idx] == -100:
                         continue
                     c_idx = to_c_change
-                    
+               
                 '''
                 이 실험에서는 형평성을 위해 집중할 label과 joint에만 유효하다. 
                 '''
+                print("p idx", p_idx, "c_idx", c_idx)
                 if self.num_atc == 1:
                     if (p_idx == 0 and c_idx) == 1 or (p_idx == 1 and c_idx == 0):
                         
@@ -532,7 +531,8 @@ class PartDatasetTableOne(Dataset):
                             raise NotImplementedError
                         
                 elif self.num_atc == 2:
-                    if (p_idx == 0 and c_idx) == 1 or (p_idx == 1 and c_idx == 0) or (p_idx == 0 and c_idx == 2) or (p_idx == 2 and c_idx == 0):
+                    if (p_idx == 0 and c_idx == 1) or (p_idx == 1 and c_idx == 0) or (p_idx == 0 and c_idx == 2) or (p_idx == 2 and c_idx == 0)\
+                    or (p_idx == 1 and c_idx == 2) or (p_idx == 2 and c_idx == 1):
                         '''
                         NOTE: 위에거 복붙이어서 neat하지 않음
                         '''
@@ -569,12 +569,11 @@ class PartDatasetTableOne(Dataset):
                 else:
                     raise NotImplementedError
             
-            
             # 체크용
             if self.num_atc == 1:
-                assert (joint_info_dict['qpos'][0][1] != 0) or (joint_info_dict['qpos'][1][0] != 0), joint_info_dict['qpos']
+                assert (joint_info_dict['qpos'][0][1] != -1) or (joint_info_dict['qpos'][1][0] != -1), joint_info_dict['qpos']
             elif self.num_atc == 2:
-                assert ((joint_info_dict['qpos'][0][1] != 0) or (joint_info_dict['qpos'][1][0] != 0)) and ((joint_info_dict['qpos'][0][2] != 0) or (joint_info_dict['qpos'][2][0] != 0)), joint_info_dict['qpos']
+                assert ((joint_info_dict['qpos'][0][1] != -1) or (joint_info_dict['qpos'][1][0] != -1)) and ((joint_info_dict['qpos'][0][2] != 0) or (joint_info_dict['qpos'][2][0] != 0)), joint_info_dict['qpos']
        
         if self.split == 'trn':
             #unorganized로 바꿈
@@ -795,21 +794,21 @@ def test_func(cloud_path, num_atc, num_nodes, token_dims, normalize, points_num)
         1부터 시작하는 링크 인덱스 
         '''
         # parent link와 child link 탐색하고, num_atc parts가=1이면 1,2 num_atc_parts=2이면 1,2,3만본다.
-        p_idx = joint_info['parent_link']['index']
-        c_idx = joint_info['child_link']['index']
+        p_idx = joint_info['parent_link']['index']-1
+        c_idx = joint_info['child_link']['index']-1
         
         # 라벨 스위치
         if model_id in to_switch_label:
-            to_p_change = to_switch_label[model_id][p_idx-1]
-            print("pidx with zero start", p_idx-1, "change to", to_p_change)
-            if to_switch_label[model_id][p_idx-1] == -100:
+            to_p_change = to_switch_label[model_id][p_idx]
+            print("pidx with zero start", p_idx, "change to", to_p_change)
+            if to_switch_label[model_id][p_idx] == -100:
                 continue
             p_idx = to_p_change
             
             
-            to_c_change = to_switch_label[model_id][c_idx-1]
-            print("pidx with zero start", c_idx-1, "change to", to_c_change)
-            if to_switch_label[model_id][c_idx-1] == -100:
+            to_c_change = to_switch_label[model_id][c_idx]
+            print("pidx with zero start", c_idx, "change to", to_c_change)
+            if to_switch_label[model_id][c_idx] == -100:
                 continue
             c_idx = to_c_change
             
@@ -850,7 +849,8 @@ def test_func(cloud_path, num_atc, num_nodes, token_dims, normalize, points_num)
                     raise NotImplementedError
                 
         elif num_atc == 2:
-            if (p_idx == 0 and c_idx) == 1 or (p_idx == 1 and c_idx == 0) or (p_idx == 0 and c_idx == 2) or (p_idx == 2 and c_idx == 0):
+            if (p_idx == 0 and c_idx) == 1 or (p_idx == 1 and c_idx == 0) or (p_idx == 0 and c_idx == 2) or (p_idx == 2 and c_idx == 0)\
+                or (p_idx == 1 and c_idx == 2) or (p_idx == 2 and c_idx == 1):
                 '''
                 NOTE: 위에거 복붙이어서 neat하지 않음
                 '''
