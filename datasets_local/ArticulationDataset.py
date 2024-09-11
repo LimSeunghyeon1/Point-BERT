@@ -185,7 +185,6 @@ class PartDataset(Dataset):
         pc = vertex_array[:, :3]
         pc = self.pc_norm(pc)
         lbl = vertex_array[:, -1]
-        
         points_num = self.points_num
         if len(pc) < points_num:
             # Padding logic for smaller point clouds
@@ -215,9 +214,9 @@ class PartDataset(Dataset):
             if len(selected_indices) < points_num:
                 remaining_points = points_num - len(selected_indices)
                 input_pcid = furthest_point_sample(pc, remaining_points).long().reshape(-1)
-
                 # 기존 샘플링 포인트에 포함되지 않도록 필터링
-                input_pcid = input_pcid[~torch.isin(input_pcid, selected_indices)]
+                # input_pcid = input_pcid[~torch.isin(input_pcid, selected_indices)]
+                # print("selected", len(input_pcid))
                 selected_indices = torch.cat((selected_indices, input_pcid))
 
             # 선택된 포인트로 pc와 lbl 업데이트
@@ -620,7 +619,7 @@ class PartDatasetTableOne(Dataset):
                 input_pcid = furthest_point_sample(pc, remaining_points).long().reshape(-1)
 
                 # 기존 샘플링 포인트에 포함되지 않도록 필터링
-                input_pcid = input_pcid[~torch.isin(input_pcid, selected_indices)]
+                # input_pcid = input_pcid[~torch.isin(input_pcid, selected_indices)]
                 selected_indices = torch.cat((selected_indices, input_pcid))
 
             # 선택된 포인트로 pc와 lbl 업데이트
@@ -929,7 +928,7 @@ def test_func(cloud_path, num_atc, num_nodes, token_dims, normalize, points_num)
             input_pcid = furthest_point_sample(pc, remaining_points).long().reshape(-1)
 
             # 기존 샘플링 포인트에 포함되지 않도록 필터링
-            input_pcid = input_pcid[~torch.isin(input_pcid, selected_indices)]
+            # input_pcid = input_pcid[~torch.isin(input_pcid, selected_indices)]
             selected_indices = torch.cat((selected_indices, input_pcid))
 
         # 선택된 포인트로 pc와 lbl 업데이트
