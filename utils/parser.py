@@ -79,8 +79,11 @@ def get_args():
     parser.add_argument('--qpos_mode', action='store_true', default=False)
     parser.add_argument(
         '--add_dvae_start_idx', type=int, default=0)
-    parser.add_argument('--simulation_task', type = str, default='door_open', help = 'task for simulation experiment')
     
+    parser.add_argument('--loss_lang', type=float, default=-1.0)
+    parser.add_argument('--loss_conf', type=float, default=-1.0)
+    parser.add_argument('--loss_type', type=float, default=-1.0)
+    parser.add_argument('--loss_qpos', type=float, default=-1.0)
     args = parser.parse_args()
 
     if args.test and args.resume:
