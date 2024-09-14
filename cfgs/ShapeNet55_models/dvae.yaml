@@ -26,9 +26,9 @@ kldweight: {
 }
 
 dataset : {
-  batch_size : 512,
-  points_num : 1024,
-  normalize : False, # 인풋 포인트클라우드 정규화?
+  batch_size : 128,
+  points_num : 8192,
+  normalize : True, # 인풋 포인트클라우드 정규화?
   train : { dirpath: '../../dvae_dataset/train', 
           },
   val : { dirpath: '../../dvae_dataset/val', 
@@ -39,11 +39,11 @@ dataset : {
 }
 model : {
   NAME: DiscreteVAE, 
-  group_size: 32, 
-  num_group: 64, 
+  group_size: 128, 
+  num_group: 128, 
   encoder_dims: 256,
   num_tokens: 8192,
-  tokens_dims: 256, 
+  tokens_dims: 768, 
   decoder_dims: 256, 
 }
 
