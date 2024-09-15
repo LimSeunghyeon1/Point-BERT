@@ -24,6 +24,9 @@ def main():
         # re-set gpu_ids with distributed training mode
         _, world_size = dist_utils.get_dist_info()
         args.world_size = world_size
+        
+        
+        
     # logger
     timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
     log_file = os.path.join(args.experiment_path, f'{timestamp}.log')
@@ -38,6 +41,10 @@ def main():
             val_writer = None
     # config
     config = get_config(args, logger = logger)
+    # config.optimizerkwargs.lr *= world_size
+    assert config.dataset.batch_size % world_size == 0
+    config.dataset.batch_size = config.dataset.batch_size // world_size
+    
     # batch size
     # if args.distributed:
     #     assert config.total_bs % world_size == 0
