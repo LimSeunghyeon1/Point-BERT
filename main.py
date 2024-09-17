@@ -42,8 +42,9 @@ def main():
     # config
     config = get_config(args, logger = logger)
     # config.optimizerkwargs.lr *= world_size
-    assert config.dataset.batch_size % world_size == 0
-    config.dataset.batch_size = config.dataset.batch_size // world_size
+    if args.distributed:
+        assert config.dataset.batch_size % world_size == 0
+        config.dataset.batch_size = config.dataset.batch_size // world_size
     
     # batch size
     # if args.distributed:
