@@ -19,6 +19,7 @@ import random
 from collections import OrderedDict
 import sys
 from plyfile import PlyData
+from src.data_util import load_dataset_by_split
 # from angle_emb import AnglE
 
 sys.path.append('./A-SDF/')
@@ -263,6 +264,8 @@ class PartDataset(Dataset):
             '''
             split == all 이외에는 deprecated될 예정
             '''
+            assert self.split in ['train', 'val', 'test'], self.split
+
             #validity check
             for dirpath, dirname, filenames in os.walk(dir):
                 data_label = dirpath.split('/')[-1]
@@ -270,6 +273,9 @@ class PartDataset(Dataset):
                 if dirpath.split('/')[-1].split('_')[0] == 'pose':
                     assert os.path.isfile(os.path.join(dirpath, 'points_with_sdf_label_binary.ply')) or os.path.isfile(os.path.join(dirpath, 'points_with_labels_binary.ply'))
                     spt, cat, inst = dirpath.split('/')[-4:-1]
+                    # split이 다르면 ontinue
+                    if spt != self.split:
+                       continue 
                     assert inst.isdigit(), inst
                     inst = int(inst)
                     assert check_data[inst] == [cat, spt], f"{inst}, {cat}, {spt}, answer: {check_data[inst]}"
@@ -672,6 +678,242 @@ class PartDatasetTableOne(Dataset):
         pc = pc / m
         return pc
 
+
+class PartDatasetPartSeg(Dataset):
+    def __init__(self, split, points_num, dirpath, data_split_file, **kwargs):
+        self.split  = split
+        assert split in ['train', 'val', 'test'], split
+        self.dirpath = dirpath
+        if 'token_dims' in kwargs.keys():
+            self.token_dims = kwargs['token_dims']
+        else:
+            self.token_dims = 768
+        if 'start_idx' in kwargs.keys():
+            self.start_idx = kwargs['start_idx']
+        else:
+            self.start_idx = 0
+        self.data_split_file = data_split_file
+        
+        self.valid_data = self._load_data()
+        self.points_num = points_num
+       
+        
+        assert 'config' in kwargs.keys()
+        config = kwargs['config']
+        data_split_file = np.load(config.dataset.data_split_file, allow_pickle=True)
+
+        graph_pkls = load_dataset_by_split(config, data_split_file, split)
+        '''
+        graph pickle을 dict로 재배치
+        {(instance, pose_num): x, inst: ...}
+        '''
+        new_graph_dict = dict()
+        for graph_pkl in graph_pkls:
+            assert graph_pkl[-1].split('/')[-3].isdigit(), graph_pkl[-1].split('/')[-3]
+            obj_idx = int(graph_pkl[-1].split('/')[-3])
+            pose_num = graph_pkl[-1].split('/')[-2]
+            assert pose_num.split('_')[0] == 'pose', pose_num
+            new_graph_dict[(obj_idx, pose_num)] = graph_pkl[0].x.detach().cpu().numpy()
+        self.graph_dict = new_graph_dict
+        
+            
+        self.feat_dim = config.model.tokens_dims
+        self.data_split_file = data_split_file
+        
+        
+            
+    def __getitem__(self, index):
+        tic = time.time()
+        cloud_path = self.valid_data[index]
+        instance_path = '/'.join(cloud_path.split('/')[:-2])
+        instance_pose_path = '/'.join(cloud_path.split('/')[:-1])
+        with open(os.path.join(instance_path, 'link_cfg.json'), 'r') as f:
+            instance_pose_json = json.load(f)
+        
+        model_id = instance_path.split('/')[-1]
+        assert model_id.isdigit(), model_id
+        model_id = int(model_id)
+        pose_num = instance_pose_path.split('/')[-1]
+        assert pose_num.split('_')[0] == 'pose', pose_num
+        # faucet인지 아닌지 체크용
+        
+        for instance_pose_dict in instance_pose_json.values():
+            if instance_pose_dict['index'] == 0:
+                taxomony_id = instance_pose_dict['name']
+                
+            
+        
+        
+        # Ply 파일 읽기
+        ply_data = PlyData.read(cloud_path)
+        
+        # Vertex 데이터 추출
+        vertex_data = ply_data['vertex']
+
+        # 필요한 속성 추출
+        x = vertex_data['x']
+        y = vertex_data['y']
+        z = vertex_data['z']
+        label = vertex_data['label'] - 1
+        
+        if 'sdf' in vertex_data:
+            sdf = vertex_data['sdf'] 
+            # Numpy array로 변환
+            vertex_array = np.vstack((x, y, z, sdf, label)).T
+            # remain only negative sdf
+            vertex_array = vertex_array[vertex_array[...,-2] < 0]
+        else:
+            vertex_array = np.vstack((x, y, z, label)).T
+            
+        assert vertex_array[...,-1].min() == 0 # 0은 없었다고 가정
+        
+        new_label = vertex_array[...,-1]
+        
+        
+       
+        if self.split == 'trn':
+            #unorganized로 바꿈
+            shuf = list(range(len(vertex_array)))
+            random.shuffle(shuf)
+            vertex_array = vertex_array[shuf]
+        
+        
+        
+        pc = vertex_array[:, :3]
+        pc = self.pc_norm(pc)
+        lbl = vertex_array[:, -1]
+        points_num = self.points_num
+        if len(pc) < points_num:
+            # Padding logic for smaller point clouds
+            pc_pad = np.zeros((points_num, 3))
+            lbl_pad = np.zeros((points_num))
+            pc_pad[:len(pc), :] = pc
+            lbl_pad[:len(pc)] = lbl
+            pc = torch.from_numpy(pc_pad).float().cuda()
+            lbl = torch.from_numpy(lbl_pad).type(torch.int64).cuda()
+        else:
+            pc = torch.from_numpy(pc).unsqueeze(0).float().cuda()
+            lbl = torch.from_numpy(lbl).type(torch.int64).cuda()
+            pc = pc.contiguous()
+
+            # 샘플링에 앞서 각 라벨에서 최소 하나의 포인트를 먼저 선택
+            unique_labels = torch.unique(lbl)
+            selected_indices = []
+
+            for label_ in unique_labels:
+                label_indices = torch.where(lbl == label_)[0]
+                if len(label_indices) > 0:
+                    selected_indices.append(label_indices[torch.randint(len(label_indices), (1,))])
+
+            selected_indices = torch.cat(selected_indices)
+
+            # 나머지 포인트는 기존 방식으로 샘플링
+            if len(selected_indices) < points_num:
+                remaining_points = points_num - len(selected_indices)
+                input_pcid = furthest_point_sample(pc, remaining_points).long().reshape(-1)
+                # 기존 샘플링 포인트에 포함되지 않도록 필터링
+                # input_pcid = input_pcid[~torch.isin(input_pcid, selected_indices)]
+                # print("selected", len(input_pcid))
+                selected_indices = torch.cat((selected_indices, input_pcid))
+
+            # 선택된 포인트로 pc와 lbl 업데이트
+            pc = pc[:, selected_indices, :].squeeze()
+            lbl = lbl[selected_indices]
+            
+            shape_embed = self.graph_dict[(model_id, pose_num)]
+            ground_truth_feat = shape_embed[lbl]
+            assert ground_truth_feat.shape == (len(vertex_array), self.feat_dim), ground_truth_feat.shape
+
+            
+        assert set(new_label.flatten().tolist()) == set(lbl.flatten().tolist()), f"{set(new_label.flatten().tolist())} , {set(lbl.flatten().tolist())}"   
+        return pc.squeeze(), ground_truth_feat.squeeze(), lbl, cloud_path
+        
+    def __len__(self):
+        return len(self.valid_data) 
+        
+    def _load_data(self):
+        total_valid_paths = []
+        dir = self.dirpath
+        check_data = np.load(self.data_split_file, allow_pickle=True)
+        print("checking...")
+
+        if self.split == 'all':
+            # mpn loader에 담을 모든 데이터 (train , val, test split을 담음)
+            # NOTE: 여기서 dir은 '../pose_data/'... all 아니면 ../pose_data/train/Table/ 이렇게 됨  
+            #validity check
+            for dirpath, dirname, filenames in os.walk(dir):
+                data_label = dirpath.split('/')[-1]
+                #validity check
+                if dirpath.split('/')[-1].split('_')[0] == 'pose':
+                    assert os.path.isfile(os.path.join(dirpath, 'points_with_sdf_label_binary.ply')) or os.path.isfile(os.path.join(dirpath, 'points_with_labels_binary.ply'))
+                    spt, cat, inst = dirpath.split('/')[-4:-1]
+                    assert inst.isdigit(), inst
+                    inst = int(inst)
+                    assert check_data[inst] == [cat, spt], f"{inst}, {cat}, {spt}, answer: {check_data[inst]}"
+                    # obj_idx = dirpath.split('/')[-2]
+                    # assert obj_idx.isdigit(), obj_idx
+                    if os.path.isfile(os.path.join(dirpath, 'points_with_sdf_label_binary.ply')):
+                        total_valid_paths.append(os.path.join(dirpath, 'points_with_sdf_label_binary.ply'))
+                    elif os.path.isfile(os.path.join(dirpath, 'points_with_labels_binary.ply')):
+                        total_valid_paths.append(os.path.join(dirpath, 'points_with_labels_binary.ply'))
+                    else:
+                        raise NotImplementedError
+        else:
+            '''
+            split == all 이외에는 deprecated될 예정
+            '''
+            assert self.split in ['train', 'val', 'test'], self.split
+
+            #validity check
+            for dirpath, dirname, filenames in os.walk(dir):
+                data_label = dirpath.split('/')[-1]
+                #validity check
+                if dirpath.split('/')[-1].split('_')[0] == 'pose':
+                    assert os.path.isfile(os.path.join(dirpath, 'points_with_sdf_label_binary.ply')) or os.path.isfile(os.path.join(dirpath, 'points_with_labels_binary.ply'))
+                    spt, cat, inst = dirpath.split('/')[-4:-1]
+                    # split이 다르면 ontinue
+                    if spt != self.split:
+                       continue 
+                    assert inst.isdigit(), inst
+                    inst = int(inst)
+                    assert check_data[inst] == [cat, spt], f"{inst}, {cat}, {spt}, answer: {check_data[inst]}"
+                    # obj_idx = dirpath.split('/')[-2]
+                    # assert obj_idx.isdigit(), obj_idx
+                    if os.path.isfile(os.path.join(dirpath, 'points_with_sdf_label_binary.ply')):
+                        total_valid_paths.append(os.path.join(dirpath, 'points_with_sdf_label_binary.ply'))
+                    elif os.path.isfile(os.path.join(dirpath, 'points_with_labels_binary.ply')):
+                        total_valid_paths.append(os.path.join(dirpath, 'points_with_labels_binary.ply'))
+                    else:
+                        raise NotImplementedError
+            # for filename in filenames:
+            #     # if filename == 'points_with_sdf_label.ply':
+            #     if filename == 'points_with_sdf_label_binary.ply' or filename == 'points_with_labels_binary.ply':
+            #         obj_idx = dirpath.split('/')[-2]
+            #         assert obj_idx.isdigit(), obj_idx
+            #         if int(obj_idx) >= self.start_idx:
+            #             total_valid_paths.append(os.path.join(dirpath, filename))
+            # if data_label.split('_')[0].isdigit():
+            #     total_valid_paths.append(dirpath)
+            
+        return total_valid_paths    
+            
+    
+    def _get_label_embedding(label_path):
+        with open(label_path, 'r') as json_file:
+            link_dict = json.load(json_file)
+        idx2name = dict()    
+        for link_item in link_dict.values():
+            idx2name[link_item['index']] = link_item['name']
+        return idx2name 
+    
+    def pc_norm(self, pc):
+        """ pc: NxC, return NxC """
+        centroid = np.mean(pc, axis=0)
+        pc = pc - centroid
+        m = np.max(np.sqrt(np.sum(pc**2, axis=1)))
+        pc = pc / m
+        return pc
+    
 
 def test_func(cloud_path, num_atc, num_nodes, token_dims, normalize, points_num):
     '''

@@ -77,6 +77,8 @@ def get_args():
     parser.add_argument('--num_iteration', type = int, default=None, help = 'num iteration')
     parser.add_argument('--num_heads', type = int, default=None, help = 'num iteration')
     parser.add_argument('--qpos_mode', action='store_true', default=False)
+    parser.add_argument('--partseg_mode', action='store_true', default=False)
+    
     parser.add_argument(
         '--add_dvae_start_idx', type=int, default=0)
     
