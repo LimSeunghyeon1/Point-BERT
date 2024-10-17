@@ -118,10 +118,11 @@ def get_args():
     return args
 
 def create_experiment_dir(args):
-    if not os.path.exists(args.experiment_path):
-        os.makedirs(args.experiment_path)
-        print('Create experiment path successfully at %s' % args.experiment_path)
-    if not os.path.exists(args.tfboard_path):
-        os.makedirs(args.tfboard_path)
-        print('Create TFBoard path successfully at %s' % args.tfboard_path)
+    if args.local_rank == 0:
+        if not os.path.exists(args.experiment_path):
+            os.makedirs(args.experiment_path)
+            print('Create experiment path successfully at %s' % args.experiment_path)
+        if not os.path.exists(args.tfboard_path):
+            os.makedirs(args.tfboard_path)
+            print('Create TFBoard path successfully at %s' % args.tfboard_path)
 
