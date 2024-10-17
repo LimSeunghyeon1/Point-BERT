@@ -682,7 +682,11 @@ class PartDatasetTableOne(Dataset):
 class PartDatasetPartSeg(Dataset):
     def __init__(self, split, points_num, dirpath, data_split_file, **kwargs):
         self.split  = split
+        assert 'config' in kwargs.keys()
+        config = kwargs['config']
         assert split in ['train', 'val', 'test'], split
+        self.obj_name = config.dataset.obj_name
+        
         self.dirpath = dirpath
         if 'token_dims' in kwargs.keys():
             self.token_dims = kwargs['token_dims']
@@ -698,8 +702,6 @@ class PartDatasetPartSeg(Dataset):
         self.points_num = points_num
        
         
-        assert 'config' in kwargs.keys()
-        config = kwargs['config']
         data_split_file = np.load(config.dataset.data_split_file, allow_pickle=True)
 
         graph_pkls = load_dataset_by_split(config, data_split_file, split)
@@ -820,9 +822,10 @@ class PartDatasetPartSeg(Dataset):
             pc = pc[:, selected_indices, :].squeeze()
             lbl = lbl[selected_indices]
             
+            
             shape_embed = self.graph_dict[(model_id, pose_num)]
-            ground_truth_feat = shape_embed[lbl]
-            assert ground_truth_feat.shape == (len(vertex_array), self.feat_dim), ground_truth_feat.shape
+            ground_truth_feat = shape_embed[lbl.detach().cpu().numpy()]
+            assert ground_truth_feat.shape[0] == len(pc) and ground_truth_feat.shape[1] == self.feat_dim, f"{ground_truth_feat.shape},{(len(pc), self.feat_dim)}"
 
             
         assert set(new_label.flatten().tolist()) == set(lbl.flatten().tolist()), f"{set(new_label.flatten().tolist())} , {set(lbl.flatten().tolist())}"   
@@ -847,6 +850,8 @@ class PartDatasetPartSeg(Dataset):
                 if dirpath.split('/')[-1].split('_')[0] == 'pose':
                     assert os.path.isfile(os.path.join(dirpath, 'points_with_sdf_label_binary.ply')) or os.path.isfile(os.path.join(dirpath, 'points_with_labels_binary.ply'))
                     spt, cat, inst = dirpath.split('/')[-4:-1]
+                    if cat.lower() != self.obj_name.lower():
+                        continue
                     assert inst.isdigit(), inst
                     inst = int(inst)
                     assert check_data[inst] == [cat, spt], f"{inst}, {cat}, {spt}, answer: {check_data[inst]}"
@@ -871,9 +876,11 @@ class PartDatasetPartSeg(Dataset):
                 if dirpath.split('/')[-1].split('_')[0] == 'pose':
                     assert os.path.isfile(os.path.join(dirpath, 'points_with_sdf_label_binary.ply')) or os.path.isfile(os.path.join(dirpath, 'points_with_labels_binary.ply'))
                     spt, cat, inst = dirpath.split('/')[-4:-1]
+                    if cat.lower() != self.obj_name.lower():
+                        continue
                     # split이 다르면 ontinue
-                    if spt != self.split:
-                       continue 
+                    assert spt == self.split, f"found {spt} not {self.split}"
+                       
                     assert inst.isdigit(), inst
                     inst = int(inst)
                     assert check_data[inst] == [cat, spt], f"{inst}, {cat}, {spt}, answer: {check_data[inst]}"
