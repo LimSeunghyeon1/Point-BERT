@@ -76,70 +76,151 @@ class PartDataset(Dataset):
             if instance_pose_dict['index'] == 0:
                 # assert instance_pose_dict['name'] == 'Faucet' , instance_pose_dict #HARDCODED
                 taxomony_id = instance_pose_dict['name']
-        # Ply 파일 읽기
-        ply_data = PlyData.read(cloud_path)
-        # Vertex 데이터 추출
-        vertex_data = ply_data['vertex']
-
-        # real world에서는 sdf 없음 아직까지는
-        x = vertex_data['x']
-        y = vertex_data['y']
-        z = vertex_data['z']
-        label = vertex_data['label'] - 1
         
         if self.real_world:
-            vertex_array = np.vstack((x, y, z, label)).T
-            # part segmentation으로 배경 제거할 것이기 때문에 배경은 제거하고 train한다.
-            vertex_array = vertex_array[vertex_array[...,-1] >= 0]
+            data = np.load(cloud_path, allow_pickle=True) #"pc", "rgb", "label"
+            pc = data["pc"]
+            rgb = data["rgb"]
+            label = data["label"] - 1
+            points = np.concatenate((pc, rgb, np.expand_dims(label, axis=-1)), axis=-1)
+            points = points[~np.any(np.isnan(points), axis=-1)]
+            
+            
+            
+            points = points.reshape(-1, 7)
+            
+            
+            points = points[points[:, -1] >= 0]
+            
+            # pc, rgb, label 분리
+            pc = points[:, :3]
+            rgb = points[:, 3:6]
+            lbl = points[:, -1]
+
+            # 고유한 라벨 추출
+            unique_labels = np.unique(lbl)
+
+            # 최종 마스크 초기화 (모든 포인트를 제외 상태로 시작)
+            final_mask = np.zeros(points.shape[0], dtype=bool)
+
+            # 각 라벨별로 필터링 수행
+            for label in unique_labels:
+                # 현재 라벨에 해당하는 포인트 인덱스
+                label_mask = (lbl == label)
+                
+                # 해당 라벨의 pc 데이터 추출
+                pc_label = pc[label_mask]
+                
+                # 라벨별 평균 및 표준편차 계산
+                pc_mean = np.mean(pc_label, axis=0)
+                pc_std = np.std(pc_label, axis=0)
+                
+                # 표준편차 1.5배를 초과하지 않는 포인트 마스크
+                within_std_mask = np.all(np.abs(pc_label - pc_mean) <= 1.5 * pc_std, axis=1)
+                
+                # 최종 마스크에 반영
+                final_mask[label_mask] = within_std_mask
+
+            # 마스크를 적용하여 필터링된 포인트 얻기
+            filtered_points = points[final_mask]
+
+            # 필터링된 포인트의 최소 label이 0인지 확인
+            assert filtered_points[:, -1].min() == 0, "최소 라벨 값이 0이 아닙니다."
+
+            if self.split == 'trn':
+                #unorganized로 바꿈
+                shuf = list(range(len(filtered_points)))
+                random.shuffle(shuf)
+                filtered_points = filtered_points[shuf]
+            
+            # pc, rgb, lbl 재분리
+            pc = filtered_points[:, :3]
+            rgb = filtered_points[:, 3:6]
+            lbl = filtered_points[:, -1]
+
+            
+            if self.normalize:
+                pc = self.pc_norm(pc)
+            assert np.unique(lbl).min() >= 0
+            
+            
+            if len(pc) < self.points_num:
+                pc_pad = np.zeros((self.points_num, 3))
+                lbl_pad = np.zeros((self.points_num))
+                pc_pad[:len(pc), :] = pc
+                lbl_pad[:len(pc)] = lbl
+                pc = torch.from_numpy(pc_pad).float().cuda()
+                lbl = torch.from_numpy(lbl_pad).type(torch.int64).cuda()
+            else:
+                pc = torch.from_numpy(pc).unsqueeze(0).float().cuda()
+                lbl = torch.from_numpy(lbl).type(torch.int64).cuda()
+                pc = pc.contiguous()
+                input_pcid = furthest_point_sample(pc, self.points_num).long().reshape(-1)
+                pc = pc[:, input_pcid, :].squeeze()
+                assert len(lbl.shape) == 1
+                lbl = lbl[input_pcid]
+                
+        
         else:
+            # Ply 파일 읽기
+            ply_data = PlyData.read(cloud_path)
+            # Vertex 데이터 추출
+            vertex_data = ply_data['vertex']
+
+            # real world에서는 sdf 없음 아직까지는
+            x = vertex_data['x']
+            y = vertex_data['y']
+            z = vertex_data['z']
+            label = vertex_data['label'] - 1
+            
+            
             # 필요한 속성 추출
             sdf = vertex_data['sdf']
             # Numpy array로 변환
             vertex_array = np.vstack((x, y, z, sdf, label)).T
             # remain only negative sdf
             vertex_array = vertex_array[vertex_array[...,-2] < 0]
-        
+            
 
-        assert vertex_array[...,-1].min() == 0 # 0은 없었다고 가정
-        
-        if self.split == 'trn':
-            #unorganized로 바꿈
-            shuf = list(range(len(vertex_array)))
-            random.shuffle(shuf)
-            vertex_array = vertex_array[shuf]
-        
-        pc = vertex_array[:, :3]
-        if self.normalize:
-            pc = self.pc_norm(pc)
-        lbl = vertex_array[:, -1]
-        assert np.unique(lbl).min() >= 0
-        
-        
-        
-        if len(pc) < self.points_num:
-            pc_pad = np.zeros((self.points_num, 3))
-            lbl_pad = np.zeros((self.points_num))
-            pc_pad[:len(pc), :] = pc
-            lbl_pad[:len(pc)] = lbl
-            pc = torch.from_numpy(pc_pad).float().cuda()
-            lbl = torch.from_numpy(lbl_pad).type(torch.int64).cuda()
-        else:
-            pc = torch.from_numpy(pc).unsqueeze(0).float().cuda()
-            lbl = torch.from_numpy(lbl).type(torch.int64).cuda()
-            pc = pc.contiguous()
-            input_pcid = furthest_point_sample(pc, self.points_num).long().reshape(-1)
-            pc = pc[:, input_pcid, :].squeeze()
-            assert len(lbl.shape) == 1
-            lbl = lbl[input_pcid]
-            # if self.split == 'trn':
-                # Add Gaussian noise
-                # noise = 0.01 * np.random.randn(len(pc_lbl), 3)
-                # pc_lbl += torch.from_numpy(noise).float().cuda()
-                
-                # Random 3D rotation
-                # rotation_matrix = random_rotation_matrix()
-                # pc_lbl = torch.from_numpy((rotation_matrix @ pc_lbl.cpu().numpy().T).T).float().cuda()        
-        
+            assert vertex_array[...,-1].min() == 0 # 0은 없었다고 가정
+            
+            if self.split == 'trn':
+                #unorganized로 바꿈
+                shuf = list(range(len(vertex_array)))
+                random.shuffle(shuf)
+                vertex_array = vertex_array[shuf]
+            
+            pc = vertex_array[:, :3]
+            if self.normalize:
+                pc = self.pc_norm(pc)
+            lbl = vertex_array[:, -1]
+            assert np.unique(lbl).min() >= 0
+            
+            
+            
+            if len(pc) < self.points_num:
+                pc_pad = np.zeros((self.points_num, 3))
+                lbl_pad = np.zeros((self.points_num))
+                pc_pad[:len(pc), :] = pc
+                lbl_pad[:len(pc)] = lbl
+                pc = torch.from_numpy(pc_pad).float().cuda()
+                lbl = torch.from_numpy(lbl_pad).type(torch.int64).cuda()
+            else:
+                pc = torch.from_numpy(pc).unsqueeze(0).float().cuda()
+                lbl = torch.from_numpy(lbl).type(torch.int64).cuda()
+                pc = pc.contiguous()
+                input_pcid = furthest_point_sample(pc, self.points_num).long().reshape(-1)
+                pc = pc[:, input_pcid, :].squeeze()
+                assert len(lbl.shape) == 1
+                lbl = lbl[input_pcid]
+                # if self.split == 'trn':
+                    # Add Gaussian noise
+                    # noise = 0.01 * np.random.randn(len(pc_lbl), 3)
+                    # pc_lbl += torch.from_numpy(noise).float().cuda()
+                    
+                    # Random 3D rotation
+                    # rotation_matrix = random_rotation_matrix()
+                    # pc_lbl = torch.from_numpy((rotation_matrix @ pc_lbl.cpu().numpy().T).T).float().cuda()        
         return taxomony_id, model_id, pc.squeeze(), lbl
         
     def __len__(self):
@@ -157,11 +238,9 @@ class PartDataset(Dataset):
             data_label = dirpath.split('/')[-1]
             for filename in filenames:
                 if self.real_world:
-                    if filename == 'full_point_cloud.ply':
+                    if filename == 'traj.pkl':
                         spt, cat, inst = dirpath.split('/')[-4:-1]
                         inst = int(inst)
-                        if not self.real_world:
-                            assert check_data[inst] == [cat, spt], f"{inst}, {cat}, {spt}, answer: {check_data[inst]}"
                         total_valid_paths.append(os.path.join(dirpath, filename))
                 else:
                     if filename == 'points_with_sdf_label_binary.ply':
