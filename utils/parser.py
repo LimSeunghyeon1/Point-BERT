@@ -82,6 +82,9 @@ def get_args():
     parser.add_argument(
         '--add_dvae_start_idx', type=int, default=0)
     
+    parser.add_argument(
+        '--reg_loss_func_name',choices=['mseloss', 'maeloss', 'huberloss'], default=None)
+    
     parser.add_argument('--loss_lang', type=float, default=-1.0)
     parser.add_argument('--loss_conf', type=float, default=-1.0)
     parser.add_argument('--loss_type', type=float, default=-1.0)

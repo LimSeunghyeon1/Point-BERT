@@ -59,6 +59,10 @@ class PartDataset(Dataset):
     def __init__(self, split, points_num, dirpath, data_split_file, **kwargs):
         self.split  = split
         self.dirpath = dirpath
+        if 'real_world' in kwargs.keys():
+            self.real_world = kwargs['real_world']
+        else:
+            self.real_world = False
         if 'token_dims' in kwargs.keys():
             self.token_dims = kwargs['token_dims']
         else:
@@ -76,6 +80,8 @@ class PartDataset(Dataset):
             self.num_nodes = kwargs['num_nodes']
         else:
             self.mpn = False
+        
+        
       
         
         
@@ -98,7 +104,6 @@ class PartDataset(Dataset):
             if instance_pose_dict['index'] == 0:
                 taxomony_id = instance_pose_dict['name']
                 
-                
         
         # Ply 파일 읽기
         ply_data = PlyData.read(cloud_path)
@@ -112,15 +117,17 @@ class PartDataset(Dataset):
         z = vertex_data['z']
         label = vertex_data['label'] - 1
         
-        if 'sdf' in vertex_data:
-            sdf = vertex_data['sdf'] 
+        if self.real_world:
+            vertex_array = np.vstack((x, y, z, label)).T
+            # part segmentation으로 배경 제거할 것이기 때문에 배경은 제거하고 train한다.
+            vertex_array = vertex_array[vertex_array[...,-1] >= 0]
+        else:
+            # 필요한 속성 추출
+            sdf = vertex_data['sdf']
             # Numpy array로 변환
             vertex_array = np.vstack((x, y, z, sdf, label)).T
             # remain only negative sdf
             vertex_array = vertex_array[vertex_array[...,-2] < 0]
-        else:
-            vertex_array = np.vstack((x, y, z, label)).T
-            
         assert vertex_array[...,-1].min() == 0 # 0은 없었다고 가정
         
         new_label = vertex_array[...,-1]
@@ -236,7 +243,8 @@ class PartDataset(Dataset):
     def _load_data(self):
         total_valid_paths = []
         dir = self.dirpath
-        check_data = np.load(self.data_split_file, allow_pickle=True)
+        if not self.real_world:
+            check_data = np.load(self.data_split_file, allow_pickle=True)
         print("checking...")
 
         if self.split == 'all':
@@ -246,21 +254,30 @@ class PartDataset(Dataset):
             for dirpath, dirname, filenames in os.walk(dir):
                 data_label = dirpath.split('/')[-1]
                 #validity check
-                if dirpath.split('/')[-1].split('_')[0] == 'pose':
-                    assert os.path.isfile(os.path.join(dirpath, 'points_with_sdf_label_binary.ply')) or os.path.isfile(os.path.join(dirpath, 'points_with_labels_binary.ply'))
-                    spt, cat, inst = dirpath.split('/')[-4:-1]
-                    assert inst.isdigit(), inst
-                    inst = int(inst)
-                    assert check_data[inst] == [cat, spt], f"{inst}, {cat}, {spt}, answer: {check_data[inst]}"
-                    # obj_idx = dirpath.split('/')[-2]
-                    # assert obj_idx.isdigit(), obj_idx
-                    if os.path.isfile(os.path.join(dirpath, 'points_with_sdf_label_binary.ply')):
-                        total_valid_paths.append(os.path.join(dirpath, 'points_with_sdf_label_binary.ply'))
-                    elif os.path.isfile(os.path.join(dirpath, 'points_with_labels_binary.ply')):
-                        total_valid_paths.append(os.path.join(dirpath, 'points_with_labels_binary.ply'))
+                if dirpath.split('/')[-1].split('_')[0] == 'pose' and len(dirpath.split('/')[-1].split('_')) == 2:
+                    print("dirpath", dirpath)
+                    if self.real_world:
+                        spt, cat, inst = dirpath.split('/')[-4:-1]
+                        assert inst.isdigit(), inst
+                        inst = int(inst)
+                        total_valid_paths.append(os.path.join(dirpath, 'full_point_cloud.ply'))
+                        
                     else:
-                        raise NotImplementedError
+                        assert os.path.isfile(os.path.join(dirpath, 'points_with_sdf_label_binary.ply')) or os.path.isfile(os.path.join(dirpath, 'points_with_labels_binary.ply'))
+                        spt, cat, inst = dirpath.split('/')[-4:-1]
+                        assert inst.isdigit(), inst
+                        inst = int(inst)
+                        assert check_data[inst] == [cat, spt], f"{inst}, {cat}, {spt}, answer: {check_data[inst]}"
+                        # obj_idx = dirpath.split('/')[-2]
+                        # assert obj_idx.isdigit(), obj_idx
+                        if os.path.isfile(os.path.join(dirpath, 'points_with_sdf_label_binary.ply')):
+                            total_valid_paths.append(os.path.join(dirpath, 'points_with_sdf_label_binary.ply'))
+                        elif os.path.isfile(os.path.join(dirpath, 'points_with_labels_binary.ply')):
+                            total_valid_paths.append(os.path.join(dirpath, 'points_with_labels_binary.ply'))
+                        else:
+                            raise NotImplementedError
         else:
+            assert not self.real_world
             '''
             split == all 이외에는 deprecated될 예정
             '''

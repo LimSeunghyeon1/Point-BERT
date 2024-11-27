@@ -28,14 +28,14 @@ kldweight: {
 dataset : {
   batch_size : 512,
   points_num : 1024,
-  normalize : False, # 인풋 포인트클라우드 정규화?
-  train : { dirpath: '../../dvae_dataset/train', 
+  normalize : True, # 인풋 포인트클라우드 정규화?
+  train : { dirpath: '../../arti_data/pose_data_box/train', 
           },
-  val : { dirpath: '../../dvae_dataset/val', 
+  val : { dirpath: '../../arti_data/pose_data_box/val', 
           },
-  test : { dirpath: '../../dvae_dataset/test', 
+  test : { dirpath: '../../arti_data/pose_data_box/test', 
           },
-  data_split_file: 'tools/whole_data_0903_final.pkl'
+  data_split_file: null
 }
 model : {
   NAME: DiscreteVAE, 
@@ -47,7 +47,7 @@ model : {
   decoder_dims: 256, 
 }
 
-real_world: False
+real_world: True
 
 # total_bs : 64
 step_per_update : 1

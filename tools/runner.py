@@ -77,8 +77,8 @@ def run_net(args, config, train_writer=None, val_writer=None):
     # build dataset
     # (train_sampler, train_dataloader), (_, test_dataloader) = builder.dataset_builder(args, config.dataset.train), \
     #                                                         builder.dataset_builder(args, config.dataset.val)
-    train_dataset = PartDataset('trn', config.dataset.points_num, config.dataset.train.dirpath, config.dataset.data_split_file, normalize=config.dataset.normalize)
-    valid_dataset = PartDataset('valid', config.dataset.points_num, config.dataset.val.dirpath, config.dataset.data_split_file, normalize=config.dataset.normalize)
+    train_dataset = PartDataset('trn', config.dataset.points_num, config.dataset.train.dirpath, config.dataset.data_split_file, normalize=config.dataset.normalize, real_world=config.real_world)
+    valid_dataset = PartDataset('valid', config.dataset.points_num, config.dataset.val.dirpath, config.dataset.data_split_file, normalize=config.dataset.normalize, real_world=config.real_world)
     
     if args.distributed:
         train_sampler = DistributedSampler(train_dataset, num_replicas=args.world_size, rank=args.local_rank)
@@ -347,7 +347,7 @@ def test_net(args, config):
     print_log('Tester start ... ', logger = logger)
     
     
-    test_dataset = PartDataset('test', config.dataset.points_num, config.dataset.test.dirpath, config.dataset.data_split_file, language_embed_file=config.dataset.language_embed_file, normalize=config.dataset.normalize)
+    test_dataset = PartDataset('test', config.dataset.points_num, config.dataset.test.dirpath, config.dataset.data_split_file, language_embed_file=config.dataset.language_embed_file, normalize=config.dataset.normalize, real_world=config.real_world)
     
     test_dataloader = DataLoader(test_dataset, batch_size=1)
     # _, test_dataloader = builder.dataset_builder(args, config.dataset.test)

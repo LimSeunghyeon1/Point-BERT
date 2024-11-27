@@ -51,10 +51,12 @@ def random_rotation_matrix():
     return rotation_matrix
 
 class PartDataset(Dataset):
-    def __init__(self, split, points_num, dirpath, data_split_file, normalize):
+    def __init__(self, split, points_num, dirpath, data_split_file, normalize, real_world):
         self.split  = split
         self.dirpath = dirpath
         self.data_split_file = data_split_file
+        self.real_world = real_world
+        
         self.valid_data = self._load_data()
         self.points_num = points_num
         self.normalize = normalize
@@ -79,17 +81,25 @@ class PartDataset(Dataset):
         # Vertex 데이터 추출
         vertex_data = ply_data['vertex']
 
-        # 필요한 속성 추출
+        # real world에서는 sdf 없음 아직까지는
         x = vertex_data['x']
         y = vertex_data['y']
         z = vertex_data['z']
-        sdf = vertex_data['sdf']
         label = vertex_data['label'] - 1
-            
-        # Numpy array로 변환
-        vertex_array = np.vstack((x, y, z, sdf, label)).T
-        # remain only negative sdf
-        vertex_array = vertex_array[vertex_array[...,-2] < 0]
+        
+        if self.real_world:
+            vertex_array = np.vstack((x, y, z, label)).T
+            # part segmentation으로 배경 제거할 것이기 때문에 배경은 제거하고 train한다.
+            vertex_array = vertex_array[vertex_array[...,-1] >= 0]
+        else:
+            # 필요한 속성 추출
+            sdf = vertex_data['sdf']
+            # Numpy array로 변환
+            vertex_array = np.vstack((x, y, z, sdf, label)).T
+            # remain only negative sdf
+            vertex_array = vertex_array[vertex_array[...,-2] < 0]
+        
+
         assert vertex_array[...,-1].min() == 0 # 0은 없었다고 가정
         
         if self.split == 'trn':
@@ -103,6 +113,8 @@ class PartDataset(Dataset):
             pc = self.pc_norm(pc)
         lbl = vertex_array[:, -1]
         assert np.unique(lbl).min() >= 0
+        
+        
         
         if len(pc) < self.points_num:
             pc_pad = np.zeros((self.points_num, 3))
@@ -137,17 +149,27 @@ class PartDataset(Dataset):
         total_valid_paths = []
         dir = self.dirpath
         
-        #validity check
-        check_data = np.load(self.data_split_file, allow_pickle=True)
+        if not self.real_world:
+            #validity check
+            check_data = np.load(self.data_split_file, allow_pickle=True)
 
         for dirpath, dirname, filenames in os.walk(dir):
             data_label = dirpath.split('/')[-1]
             for filename in filenames:
-                if filename == 'points_with_sdf_label_binary.ply':
-                    spt, cat, inst = dirpath.split('/')[-4:-1]
-                    inst = int(inst)
-                    assert check_data[inst] == [cat, spt], f"{inst}, {cat}, {spt}, answer: {check_data[inst]}"
-                    total_valid_paths.append(os.path.join(dirpath, filename))
+                if self.real_world:
+                    if filename == 'full_point_cloud.ply':
+                        spt, cat, inst = dirpath.split('/')[-4:-1]
+                        inst = int(inst)
+                        if not self.real_world:
+                            assert check_data[inst] == [cat, spt], f"{inst}, {cat}, {spt}, answer: {check_data[inst]}"
+                        total_valid_paths.append(os.path.join(dirpath, filename))
+                else:
+                    if filename == 'points_with_sdf_label_binary.ply':
+                        spt, cat, inst = dirpath.split('/')[-4:-1]
+                        inst = int(inst)
+                        if not self.real_world:
+                            assert check_data[inst] == [cat, spt], f"{inst}, {cat}, {spt}, answer: {check_data[inst]}"
+                        total_valid_paths.append(os.path.join(dirpath, filename))
             # if data_label.split('_')[0].isdigit():
             #     total_valid_paths.append(dirpath)
         return total_valid_paths    
