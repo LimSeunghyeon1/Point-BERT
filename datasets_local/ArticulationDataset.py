@@ -335,7 +335,8 @@ class PartDataset(Dataset):
                         # spt, cat, inst = dirpath.split('/')[-4:-1]
                         # assert inst.isdigit(), inst
                         # inst = int(inst)
-                        total_valid_paths.append(os.path.join(dirpath, 'traj.pkl'))
+                        if os.path.isfile(os.path.join(dirpath, 'traj.pkl')):
+                            total_valid_paths.append(os.path.join(dirpath, 'traj.pkl'))
                         
                     else:
                         assert os.path.isfile(os.path.join(dirpath, 'points_with_sdf_label_binary.ply')) or os.path.isfile(os.path.join(dirpath, 'points_with_labels_binary.ply'))
