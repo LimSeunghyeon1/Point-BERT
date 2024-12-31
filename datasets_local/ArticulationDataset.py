@@ -353,10 +353,6 @@ class PartDataset(Dataset):
                         else:
                             raise NotImplementedError
         else:
-            assert not self.real_world
-            '''
-            split == all 이외에는 deprecated될 예정
-            '''
             assert self.split in ['train', 'val', 'test'], self.split
 
             #validity check
@@ -364,22 +360,30 @@ class PartDataset(Dataset):
                 data_label = dirpath.split('/')[-1]
                 #validity check
                 if dirpath.split('/')[-1].split('_')[0] == 'pose':
-                    assert os.path.isfile(os.path.join(dirpath, 'points_with_sdf_label_binary.ply')) or os.path.isfile(os.path.join(dirpath, 'points_with_labels_binary.ply'))
                     spt, cat, inst = dirpath.split('/')[-4:-1]
                     # split이 다르면 ontinue
                     if spt != self.split:
                        continue 
                     assert inst.isdigit(), inst
                     inst = int(inst)
-                    assert check_data[inst] == [cat, spt], f"{inst}, {cat}, {spt}, answer: {check_data[inst]}"
-                    # obj_idx = dirpath.split('/')[-2]
-                    # assert obj_idx.isdigit(), obj_idx
-                    if os.path.isfile(os.path.join(dirpath, 'points_with_sdf_label_binary.ply')):
-                        total_valid_paths.append(os.path.join(dirpath, 'points_with_sdf_label_binary.ply'))
-                    elif os.path.isfile(os.path.join(dirpath, 'points_with_labels_binary.ply')):
-                        total_valid_paths.append(os.path.join(dirpath, 'points_with_labels_binary.ply'))
-                    else:
-                        raise NotImplementedError
+                    if self.real_world:
+                        # spt, cat, inst = dirpath.split('/')[-4:-1]
+                        # assert inst.isdigit(), inst
+                        # inst = int(inst)
+                        if os.path.isfile(os.path.join(dirpath, 'traj.pkl')):
+                            total_valid_paths.append(os.path.join(dirpath, 'traj.pkl'))
+                    else :
+                        assert os.path.isfile(os.path.join(dirpath, 'points_with_sdf_label_binary.ply')) or os.path.isfile(os.path.join(dirpath, 'points_with_labels_binary.ply'))
+                    
+                        assert check_data[inst] == [cat, spt], f"{inst}, {cat}, {spt}, answer: {check_data[inst]}"
+                        # obj_idx = dirpath.split('/')[-2]
+                        # assert obj_idx.isdigit(), obj_idx
+                        if os.path.isfile(os.path.join(dirpath, 'points_with_sdf_label_binary.ply')):
+                            total_valid_paths.append(os.path.join(dirpath, 'points_with_sdf_label_binary.ply'))
+                        elif os.path.isfile(os.path.join(dirpath, 'points_with_labels_binary.ply')):
+                            total_valid_paths.append(os.path.join(dirpath, 'points_with_labels_binary.ply'))
+                        else:
+                            raise NotImplementedError
             # for filename in filenames:
             #     # if filename == 'points_with_sdf_label.ply':
             #     if filename == 'points_with_sdf_label_binary.ply' or filename == 'points_with_labels_binary.ply':

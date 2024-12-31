@@ -29,11 +29,17 @@ dataset : {
   batch_size : 512,
   points_num : 1024,
   normalize : True, # 인풋 포인트클라우드 정규화?
-  train : { dirpath: '../../arti_data/pose_data_box/train', 
+  # train : { dirpath: '../../arti_data/pose_data_box/train', 
+  #         },
+  # val : { dirpath: '../../arti_data/pose_data_box/val', 
+  #         },
+  # test : { dirpath: '../../arti_data/pose_data_box/test', 
+  #         },
+  train : { dirpath: '../../arti_data/sdf_data/train', 
           },
-  val : { dirpath: '../../arti_data/pose_data_box/val', 
+  val : { dirpath: '../../arti_data/sdf_data/val', 
           },
-  test : { dirpath: '../../arti_data/pose_data_box/test', 
+  test : { dirpath: '../../arti_data/sdf_data/test', 
           },
   data_split_file: null
 }

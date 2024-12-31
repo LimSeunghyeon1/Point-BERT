@@ -73,6 +73,7 @@ def get_args():
     
     parser.add_argument('--only_dvae', action='store_true', default=None, help = 'experiment name')
     parser.add_argument('--add_dvae', action='store_true', default=None)
+    parser.add_argument('--e2e', action='store_true', default=None, help = 'inference dvae+mpn for time inference')
     
     parser.add_argument('--num_iteration', type = int, default=None, help = 'num iteration')
     parser.add_argument('--num_heads', type = int, default=None, help = 'num iteration')
