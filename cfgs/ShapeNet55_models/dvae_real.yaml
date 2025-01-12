@@ -26,21 +26,22 @@ kldweight: {
 }
 
 dataset : {
-  batch_size : 512,
+  batch_size : 256,
   points_num : 1024,
   normalize : True, # 인풋 포인트클라우드 정규화?
-  # train : { dirpath: '../../arti_data/pose_data_box/train', 
-  #         },
-  # val : { dirpath: '../../arti_data/pose_data_box/val', 
-  #         },
-  # test : { dirpath: '../../arti_data/pose_data_box/test', 
-  #         },
-  train : { dirpath: '../../arti_data/sdf_data/train', 
+  # 랩톱만 학습ㅂ 0109
+  train : { dirpath: '../../arti_data/pose_data_box/train', 
           },
-  val : { dirpath: '../../arti_data/sdf_data/val', 
+  val : { dirpath: '../../arti_data/pose_data_box/val', 
           },
-  test : { dirpath: '../../arti_data/sdf_data/test', 
+  test : { dirpath: '../../arti_data/pose_data_box/test', 
           },
+  # train : { dirpath: '../../arti_data/sdf_data/train', 
+  #         },
+  # val : { dirpath: '../../arti_data/sdf_data/val', 
+  #         },
+  # test : { dirpath: '../../arti_data/sdf_data/test', 
+  #         },
   data_split_file: null
 }
 model : {

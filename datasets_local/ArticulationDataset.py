@@ -55,6 +55,9 @@ def random_rotation_matrix():
     rotation_matrix = r_z @ r_y @ r_x
     return rotation_matrix
 
+
+
+
 class PartDataset(Dataset):
     def __init__(self, split, points_num, dirpath, data_split_file, **kwargs):
         self.split  = split
@@ -73,6 +76,11 @@ class PartDataset(Dataset):
             self.start_idx = 0
         self.data_split_file = data_split_file
         
+        if 'category' in kwargs.keys(): 
+            self.category = kwargs['category']
+        else:
+            self.category = 'all'
+        
         self.valid_data = self._load_data()
         self.points_num = points_num
         if 'mpn' in kwargs.keys():
@@ -85,10 +93,6 @@ class PartDataset(Dataset):
             self.normalize = kwargs['normalize']
         else:
             self.normalize = True
-        
-        
-      
-        
         
         self.language_embed_dict = np.load(kwargs['language_embed_file'], allow_pickle=True)
             
@@ -157,8 +161,10 @@ class PartDataset(Dataset):
             # 마스크를 적용하여 필터링된 포인트 얻기
             filtered_points = points[final_mask]
 
-            # 필터링된 포인트의 최소 label이 0인지 확인
-            assert filtered_points[:, -1].min() == 0, "최소 라벨 값이 0이 아닙니다."
+            if not self.real_world:
+                # 필터링된 포인트의 최소 label이 0인지 확인
+                # real world 실험에서는 안 그럴때도 있음
+                assert filtered_points[:, -1].min() == 0, "최소 라벨 값이 0이 아닙니다."
 
             if self.split == 'trn':
                 #unorganized로 바꿈
@@ -332,15 +338,20 @@ class PartDataset(Dataset):
                 if dirpath.split('/')[-1].split('_')[0] == 'pose' and len(dirpath.split('/')[-1].split('_')) == 2:
                     print("dirpath", dirpath)
                     if self.real_world:
-                        # spt, cat, inst = dirpath.split('/')[-4:-1]
-                        # assert inst.isdigit(), inst
-                        # inst = int(inst)
+                        
                         if os.path.isfile(os.path.join(dirpath, 'traj.pkl')):
+                            spt, cat, inst = dirpath.split('/')[-4:-1]
+                            assert inst.isdigit(), inst
+                            inst = int(inst)
+                            if self.category.lower() != cat.lower():
+                                continue
                             total_valid_paths.append(os.path.join(dirpath, 'traj.pkl'))
                         
                     else:
                         assert os.path.isfile(os.path.join(dirpath, 'points_with_sdf_label_binary.ply')) or os.path.isfile(os.path.join(dirpath, 'points_with_labels_binary.ply'))
                         spt, cat, inst = dirpath.split('/')[-4:-1]
+                        if self.category.lower() != cat.lower():
+                            continue
                         assert inst.isdigit(), inst
                         inst = int(inst)
                         assert check_data[inst] == [cat, spt], f"{inst}, {cat}, {spt}, answer: {check_data[inst]}"
@@ -361,6 +372,8 @@ class PartDataset(Dataset):
                 #validity check
                 if dirpath.split('/')[-1].split('_')[0] == 'pose':
                     spt, cat, inst = dirpath.split('/')[-4:-1]
+                    if self.category.lower() != cat.lower():
+                        continue
                     # split이 다르면 ontinue
                     if spt != self.split:
                        continue 

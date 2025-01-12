@@ -125,7 +125,8 @@ class PartDataset(Dataset):
             filtered_points = points[final_mask]
 
             # 필터링된 포인트의 최소 label이 0인지 확인
-            assert filtered_points[:, -1].min() == 0, "최소 라벨 값이 0이 아닙니다."
+            if not self.real_world:
+                assert filtered_points[:, -1].min() == 0, "최소 라벨 값이 0이 아닙니다."
 
             if self.split == 'trn':
                 #unorganized로 바꿈
@@ -251,6 +252,7 @@ class PartDataset(Dataset):
                         total_valid_paths.append(os.path.join(dirpath, filename))
             # if data_label.split('_')[0].isdigit():
             #     total_valid_paths.append(dirpath)
+        print("TOTAL VALID PATH", len(total_valid_paths))
         return total_valid_paths    
     
     

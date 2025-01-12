@@ -171,7 +171,6 @@ def run_net(args, config, train_writer=None, val_writer=None):
             # print("loss1", loss_1, "loss2", loss_2)
             
             _loss = compute_loss(loss_1, loss_2, config, n_itr, train_writer)
-            
             _loss.backward()
             
             for name, param in base_model.named_parameters():
@@ -261,7 +260,9 @@ def validate(base_model, test_dataloader, epoch, ChamferDisL1, ChamferDisL2, val
             ret = base_model(inp = points, hard=True, eval=True)
             coarse_points = ret[0]
             dense_points = ret[1]
-
+            
+            
+            
             sparse_loss_l1 =  ChamferDisL1(coarse_points, points)
             sparse_loss_l2 =  ChamferDisL2(coarse_points, points)
             dense_loss_l1 =  ChamferDisL1(dense_points, points)
